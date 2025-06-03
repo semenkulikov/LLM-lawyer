@@ -91,6 +91,7 @@
 ```bash
 # Предобработка PDF документов
 python src/preprocess.py
+python src/preprocess.py --input-dir data/raw --output-dir data/processed
 
 # Создание обучающего датасета
 python src/build_dataset.py data/processed/ data/train_dataset.jsonl
