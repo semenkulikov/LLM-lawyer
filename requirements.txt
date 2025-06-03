@@ -1,0 +1,6 @@
+torch
+python-dotenv
+pdfminer.six
+tqdm
+numpy
+nltk
