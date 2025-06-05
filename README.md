@@ -44,16 +44,16 @@
   - [x] Сохранить датасет в формате JSONL
   - [x] Проверить корректность и полноту датасета
 
-- [ ] **Шаг 6: Реализация компонента обучения (train)**
-  - [ ] Создать класс LegalDataset для работы с данными
-  - [ ] Реализовать архитектуру нейросети (Transformer или Seq2Seq LSTM)
-  - [ ] Написать цикл обучения с сохранением лучшей модели
-  - [ ] Добавить параметризацию через аргументы командной строки
+- [x] **Шаг 6: Реализация компонента обучения (train)**
+  - [x] Создать класс LegalDataset для работы с данными
+  - [x] Реализовать архитектуру нейросети (Transformer или Seq2Seq LSTM)
+  - [x] Написать цикл обучения с сохранением лучшей модели
+  - [x] Добавить параметризацию через аргументы командной строки
 
-- [ ] **Шаг 7: Проверка модели на "сухом" примере (валидация инференса)**
-  - [ ] Реализовать функции load_model() и generate() в src/inference.py
-  - [ ] Создать тестовый пример для проверки генерации
-  - [ ] Проверить качество и связность генерируемого текста
+- [x] **Шаг 7: Проверка модели на "сухом" примере (валидация инференса)**
+  - [x] Реализовать функции load_model() и generate() в src/inference.py
+  - [x] Создать тестовый пример для проверки генерации
+  - [x] Проверить качество и связность генерируемого текста
 
 - [ ] **Шаг 8: Создание простейшего GUI (app.py)**
   - [ ] Создать окно с полями для ввода фактов и вывода мотивировки
@@ -86,21 +86,31 @@
   - [ ] Оценить производительность и дать рекомендации по оптимизации
 
 ## Запуск проекта
-После завершения разработки, запуск системы будет выполняться следующей последовательностью команд:
 
-```bash
+Запуск системы выполняется с помощью следующих Python-скриптов:
+
+```
 # Предобработка PDF документов
-python src/preprocess.py
-python src/preprocess.py --input-dir data/raw --output-dir data/processed
+python src\preprocess.py
+python src\preprocess.py --input-dir data\raw --output-dir data\processed
 
 # Создание обучающего датасета
-python src/build_dataset.py data/processed/ data/train_dataset.jsonl
+python src\build_dataset.py data\processed\ data\train_dataset.jsonl
 
 # Обучение модели
-python src/train.py --epochs 10 --batch-size 4
+python src\train.py --train_file data\train_dataset.jsonl --test_file data\train_dataset_test.jsonl --output_dir models\legal_model --epochs 3 --batch_size 4
+
+# Генерация мотивировочной части
+python src\inference.py --model_path models\legal_model --input_file input.txt --output_file output.txt
+
+# Тестирование модели на примере
+python src\test_example.py --model_path models\legal_model --test_file data\train_dataset_test.jsonl --output_dir results
+
+# Мониторинг обучения через TensorBoard
+python src\monitor_training.py --log_dir models --port 6006 --open_browser
 
 # Запуск графического интерфейса
-python gui/app.py
+python gui\app.py
 ```
 
 ## Требования и ограничения

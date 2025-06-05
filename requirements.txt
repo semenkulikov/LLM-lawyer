@@ -5,3 +5,10 @@ tqdm
 numpy
 nltk
 pymupdf
+transformers
+datasets
+sentencepiece
+tokenizers
+accelerate
+wandb
+tensorboard
