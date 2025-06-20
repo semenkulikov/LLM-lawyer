@@ -174,6 +174,7 @@ def train_model(args):
     # Загрузка токенизатора и модели
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
     model = AutoModelForSeq2SeqLM.from_pretrained(args.model_name)
+    model = model.to(device)
     
     # Если токенизатор не имеет pad_token, используем eos_token
     if tokenizer.pad_token is None:
@@ -203,15 +204,16 @@ def train_model(args):
         weight_decay=args.weight_decay,
         logging_dir=os.path.join(args.output_dir, 'logs'),
         logging_steps=args.logging_steps,
-        evaluation_strategy="epoch",
-        save_strategy="epoch",
+        eval_steps=args.logging_steps,
+        save_steps=args.logging_steps,
         save_total_limit=3,
-        load_best_model_at_end=True,
-        metric_for_best_model="eval_loss",
-        fp16=args.fp16,
+        predict_with_generate=True,
+        fp16=torch.cuda.is_available(),
         report_to=["tensorboard"],
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         learning_rate=args.learning_rate,
+        dataloader_pin_memory=True,
+        dataloader_num_workers=0
     )
     
     # Создание тренера
@@ -250,13 +252,12 @@ def main():
     
     # Параметры обучения
     parser.add_argument('--epochs', type=int, default=3, help='Количество эпох обучения')
-    parser.add_argument('--batch_size', type=int, default=4, help='Размер батча')
+    parser.add_argument('--batch_size', type=int, default=1, help='Размер батча (уменьшен для слабых машин)')
     parser.add_argument('--learning_rate', type=float, default=5e-5, help='Скорость обучения')
     parser.add_argument('--warmup_steps', type=int, default=500, help='Количество шагов разогрева оптимизатора')
     parser.add_argument('--weight_decay', type=float, default=0.01, help='Параметр регуляризации весов')
     parser.add_argument('--logging_steps', type=int, default=100, help='Частота логирования')
     parser.add_argument('--gradient_accumulation_steps', type=int, default=4, help='Шаги накопления градиента')
-    parser.add_argument('--fp16', action='store_true', help='Использовать смешанную точность (fp16)')
     parser.add_argument('--seed', type=int, default=42, help='Seed для генератора случайных чисел')
     
     args = parser.parse_args()

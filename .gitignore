@@ -5,6 +5,9 @@ __pycache__/
 data
 # C extensions
 *.so
+models/
+input.txt
+output.txt
 
 # Distribution / packaging
 .Python
