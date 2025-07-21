@@ -4,7 +4,6 @@
 import os
 import json
 import argparse
-import logging
 import torch
 import numpy as np
 from tqdm import tqdm
@@ -17,14 +16,7 @@ from transformers import (
     DataCollatorForSeq2Seq
 )
 from datasets import Dataset as HFDataset
-
-# Настройка логирования
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S"
-)
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 class LegalDataset(Dataset):
     """
@@ -168,13 +160,38 @@ def train_model(args):
     torch.backends.cudnn.deterministic = True
     
     # Проверка доступности CUDA
+    logger.info(f"PyTorch версия: {torch.__version__}")
+    logger.info(f"CUDA доступна: {torch.cuda.is_available()}")
+    if torch.cuda.is_available():
+        logger.info(f"CUDA версия: {torch.version.cuda}")
+        logger.info(f"Количество GPU: {torch.cuda.device_count()}")
+        for i in range(torch.cuda.device_count()):
+            logger.info(f"GPU {i}: {torch.cuda.get_device_name(i)}")
+    else:
+        logger.warning("CUDA недоступна! Проверьте:")
+        logger.warning("1. Установлен ли CUDA toolkit")
+        logger.warning("2. Установлена ли PyTorch с поддержкой CUDA")
+        logger.warning("3. Есть ли совместимая видеокарта NVIDIA")
+    
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     logger.info(f"Используемое устройство: {device}")
     
     # Загрузка токенизатора и модели
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
-    model = AutoModelForSeq2SeqLM.from_pretrained(args.model_name)
-    model = model.to(device)
+    
+    # Принудительная загрузка на GPU если доступен с использованием safetensors
+    if torch.cuda.is_available():
+        model = AutoModelForSeq2SeqLM.from_pretrained(
+            args.model_name, 
+            use_safetensors=True
+        ).cuda()
+        logger.info(f"Модель загружена на GPU: {torch.cuda.get_device_name()}")
+    else:
+        model = AutoModelForSeq2SeqLM.from_pretrained(
+            args.model_name,
+            use_safetensors=True
+        ).cpu()
+        logger.info("Модель загружена на CPU")
     
     # Если токенизатор не имеет pad_token, используем eos_token
     if tokenizer.pad_token is None:
@@ -208,7 +225,7 @@ def train_model(args):
         save_steps=args.logging_steps,
         save_total_limit=3,
         predict_with_generate=True,
-        fp16=torch.cuda.is_available(),
+        fp16=False,
         report_to=["tensorboard"],
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         learning_rate=args.learning_rate,
@@ -246,18 +263,18 @@ def main():
     parser.add_argument('--output_dir', type=str, required=True, help='Директория для сохранения модели')
     
     # Параметры модели
-    parser.add_argument('--model_name', type=str, default='facebook/bart-base', help='Название или путь к предобученной модели')
-    parser.add_argument('--max_input_length', type=int, default=1024, help='Максимальная длина входной последовательности')
-    parser.add_argument('--max_output_length', type=int, default=1024, help='Максимальная длина выходной последовательности')
+    parser.add_argument('--model_name', type=str, default='models/legal_model', help='Название или путь к предобученной модели (по умолчанию использует QVikhr)')
+    parser.add_argument('--max_input_length', type=int, default=512, help='Максимальная длина входной последовательности')
+    parser.add_argument('--max_output_length', type=int, default=512, help='Максимальная длина выходной последовательности')
     
     # Параметры обучения
-    parser.add_argument('--epochs', type=int, default=3, help='Количество эпох обучения')
-    parser.add_argument('--batch_size', type=int, default=1, help='Размер батча (уменьшен для слабых машин)')
-    parser.add_argument('--learning_rate', type=float, default=5e-5, help='Скорость обучения')
-    parser.add_argument('--warmup_steps', type=int, default=500, help='Количество шагов разогрева оптимизатора')
+    parser.add_argument('--epochs', type=int, default=20, help='Количество эпох обучения')
+    parser.add_argument('--batch_size', type=int, default=2, help='Размер батча')
+    parser.add_argument('--learning_rate', type=float, default=3e-5, help='Скорость обучения')
+    parser.add_argument('--warmup_steps', type=int, default=100, help='Количество шагов разогрева оптимизатора')
     parser.add_argument('--weight_decay', type=float, default=0.01, help='Параметр регуляризации весов')
-    parser.add_argument('--logging_steps', type=int, default=100, help='Частота логирования')
-    parser.add_argument('--gradient_accumulation_steps', type=int, default=4, help='Шаги накопления градиента')
+    parser.add_argument('--logging_steps', type=int, default=10, help='Частота логирования')
+    parser.add_argument('--gradient_accumulation_steps', type=int, default=2, help='Шаги накопления градиента')
     parser.add_argument('--seed', type=int, default=42, help='Seed для генератора случайных чисел')
     
     args = parser.parse_args()

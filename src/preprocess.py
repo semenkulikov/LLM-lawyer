@@ -1,15 +1,8 @@
 import os
 import pathlib
-import logging
 import re
 import pymupdf
-
-# Настройка логирования
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S"
-)
+from loguru import logger
 
 # Расширенный словарь соответствия латинских символов с диакритикой русским символам
 # Этот словарь составлен на основе наблюдений за реальными заменами в PDF-файлах
@@ -139,7 +132,7 @@ def convert_pdf_to_text(input_pdf_path: str, output_txt_path: str) -> None:
         output_txt_path: Путь для сохранения извлеченного текста
     """
     try:
-        logging.info(f"Начинаем конвертацию файла {input_pdf_path} → {output_txt_path}")
+        logger.info(f"Начинаем конвертацию файла {input_pdf_path} → {output_txt_path}")
         
         # Проверяем, является ли файл бюллетенем
         is_bulletin = 'бюллетень' in input_pdf_path.lower()
@@ -188,10 +181,10 @@ def convert_pdf_to_text(input_pdf_path: str, output_txt_path: str) -> None:
             with open(output_txt_path, 'w', encoding='utf-8') as f:
                 f.write(full_text)
             
-            logging.info(f"Файл {output_txt_path} успешно создан")
+            logger.info(f"Файл {output_txt_path} успешно создан")
             
     except Exception as e:
-        logging.error(f"Ошибка при конвертации файла {input_pdf_path}: {str(e)}")
+        logger.error(f"Ошибка при конвертации файла {input_pdf_path}: {str(e)}")
 
 def process_all_pdfs(input_dir: str, output_dir: str) -> None:
     """
@@ -207,7 +200,7 @@ def process_all_pdfs(input_dir: str, output_dir: str) -> None:
     # Находим все PDF-файлы в директории
     pdf_files = [f for f in os.listdir(input_dir) if f.lower().endswith('.pdf')]
     
-    logging.info(f"Всего найдено {len(pdf_files)} PDF-файлов для обработки")
+    logger.info(f"Всего найдено {len(pdf_files)} PDF-файлов для обработки")
     
     # Обрабатываем каждый PDF-файл
     for pdf_file in pdf_files:
@@ -216,7 +209,7 @@ def process_all_pdfs(input_dir: str, output_dir: str) -> None:
         
         convert_pdf_to_text(input_path, output_path)
     
-    logging.info(f"Обработка завершена. Успешно обработано {len(pdf_files)} из {len(pdf_files)} файлов")
+    logger.info(f"Обработка завершена. Успешно обработано {len(pdf_files)} из {len(pdf_files)} файлов")
 
 if __name__ == "__main__":
     import argparse

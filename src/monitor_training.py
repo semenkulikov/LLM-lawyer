@@ -4,18 +4,10 @@
 import os
 import argparse
 import subprocess
-import logging
 import webbrowser
 import time
 from pathlib import Path
-
-# Настройка логирования
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S"
-)
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 def check_tensorboard_installed():
     """
@@ -49,6 +41,8 @@ def start_tensorboard(log_dir, port=6006):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         universal_newlines=True,
+        encoding='utf-8',
+        errors='replace',
         bufsize=1
     )
     

@@ -5,16 +5,8 @@ import json
 import os
 import random
 import argparse
-import logging
 from inference import load_model, generate
-
-# Настройка логирования
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S"
-)
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 def get_random_example(test_file, seed=None):
     """
@@ -74,21 +66,31 @@ def evaluate_example(model_path, test_file, output_dir=None, seed=None):
     print("\n" + "="*80)
     print("ФАКТЫ:")
     print("-"*80)
-    print(facts)
+    try:
+        print(facts)
+    except UnicodeEncodeError:
+        print(facts.encode('utf-8', errors='replace').decode('utf-8'))
     print("\n" + "="*80)
     print("СГЕНЕРИРОВАННАЯ МОТИВИРОВКА:")
     print("-"*80)
-    print(generated)
+    try:
+        print(generated)
+    except UnicodeEncodeError:
+        print(generated.encode('utf-8', errors='replace').decode('utf-8'))
     print("\n" + "="*80)
     print("ЭТАЛОННАЯ МОТИВИРОВКА:")
     print("-"*80)
-    print(reference)
+    try:
+        print(reference)
+    except UnicodeEncodeError:
+        print(reference.encode('utf-8', errors='replace').decode('utf-8'))
     print("\n" + "="*80)
     
     # Сохранение результатов, если указана директория
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
-        timestamp = logger.handlers[0].formatter.converter().strftime("%Y%m%d_%H%M%S")
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_file = os.path.join(output_dir, f"test_example_{timestamp}.json")
         
         with open(output_file, 'w', encoding='utf-8') as f:
@@ -102,7 +104,7 @@ def evaluate_example(model_path, test_file, output_dir=None, seed=None):
 
 def main():
     parser = argparse.ArgumentParser(description='Проверка модели на примере')
-    parser.add_argument('--model_path', type=str, required=True, help='Путь к директории с моделью')
+    parser.add_argument('--model_path', type=str, default='models/legal_model', help='Путь к директории с моделью (по умолчанию использует QVikhr)')
     parser.add_argument('--test_file', type=str, required=True, help='Путь к тестовому файлу (JSONL)')
     parser.add_argument('--output_dir', type=str, help='Директория для сохранения результатов')
     parser.add_argument('--seed', type=int, help='Seed для генератора случайных чисел')

@@ -4,16 +4,8 @@
 import os
 import argparse
 import torch
-import logging
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-
-# Настройка логирования
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S"
-)
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 def load_model(model_path):
     """
@@ -96,7 +88,7 @@ def main():
     parser = argparse.ArgumentParser(description='Генерация мотивировочной части решения суда')
     
     # Аргументы
-    parser.add_argument('--model_path', type=str, required=True, help='Путь к директории с сохраненной моделью')
+    parser.add_argument('--model_path', type=str, default='models/legal_model', help='Путь к директории с сохраненной моделью (по умолчанию использует QVikhr)')
     parser.add_argument('--input_text', type=str, help='Текст с фактическими обстоятельствами дела')
     parser.add_argument('--input_file', type=str, help='Файл с фактическими обстоятельствами дела')
     parser.add_argument('--output_file', type=str, help='Файл для сохранения сгенерированной мотивировки')
@@ -112,6 +104,12 @@ def main():
     # Проверка параметров
     if not args.input_text and not args.input_file:
         parser.error("Необходимо указать либо --input_text, либо --input_file")
+    
+    # Проверка существования модели
+    if not os.path.exists(args.model_path):
+        logger.error(f"Модель не найдена по пути: {args.model_path}")
+        logger.error("Убедитесь, что модель QVikhr загружена в директорию models/legal_model")
+        return
     
     # Загрузка модели и токенизатора
     model, tokenizer = load_model(args.model_path)

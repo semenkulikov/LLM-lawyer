@@ -1,178 +1,165 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import os
 import json
-import logging
 import argparse
-import pathlib
+from pathlib import Path
 from typing import Dict, List, Any
-import random
-from tqdm import tqdm
+from loguru import logger
 
-# Настройка логирования
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S"
-)
-
-def clean_text(text: str) -> str:
+def load_analyzed_documents(analyzed_dir: str) -> List[Dict[str, Any]]:
     """
-    Очищает текст от лишних символов и форматирования
+    Загружает проанализированные документы из директории
     
     Args:
-        text: Исходный текст
+        analyzed_dir: Директория с JSON файлами анализа
         
     Returns:
-        Очищенный текст
+        Список словарей с данными документов
     """
-    if not text:
-        return ""
+    documents = []
+    analyzed_path = Path(analyzed_dir)
     
-    # Удаляем лишние пробелы и переносы строк
-    text = " ".join(text.split())
+    if not analyzed_path.exists():
+        logger.error(f"Директория {analyzed_dir} не существует")
+        return documents
     
-    return text.strip()
+    # Ищем все JSON файлы с результатами анализа
+    json_files = list(analyzed_path.glob("*_analyzed.json"))
+    
+    for json_file in json_files:
+        try:
+            with open(json_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                documents.append(data)
+                logger.info(f"Загружен документ: {json_file.name}")
+        except Exception as e:
+            logger.error(f"Ошибка при загрузке {json_file}: {e}")
+    
+    logger.info(f"Всего загружено документов: {len(documents)}")
+    return documents
 
-def filter_valid_pairs(facts: str, reasoning: str) -> bool:
+def create_training_examples(documents: List[Dict[str, Any]]) -> List[Dict[str, str]]:
     """
-    Проверяет, является ли пара "факты → мотивировка" подходящей для обучения
+    Создает обучающие примеры из проанализированных документов
     
     Args:
-        facts: Текст с фактами
-        reasoning: Текст с мотивировкой
+        documents: Список проанализированных документов
         
     Returns:
-        True, если пара подходит для обучения, иначе False
+        Список обучающих примеров в формате {"facts": "...", "reasoning": "..."}
     """
-    # Проверяем минимальную длину текстов
-    if len(facts) < 100 or len(reasoning) < 200:
-        return False
+    examples = []
     
-    # Проверяем максимальную длину (для избежания слишком длинных текстов)
-    if len(facts) > 5000 or len(reasoning) > 10000:
-        return False
+    for doc in documents:
+        try:
+            # Извлекаем факты из установочной части
+            facts = doc.get('sections', {}).get('facts', '')
+            if not facts:
+                facts = doc.get('document_info', {}).get('key_facts', '')
+            
+            # Извлекаем мотивировку
+            reasoning = doc.get('sections', {}).get('reasoning', '')
+            if not reasoning:
+                reasoning = doc.get('document_info', {}).get('legal_norms', '')
+            
+            # Проверяем, что у нас есть и факты, и мотивировка
+            if facts and reasoning and len(facts) > 50 and len(reasoning) > 50:
+                example = {
+                    "facts": facts.strip(),
+                    "reasoning": reasoning.strip()
+                }
+                examples.append(example)
+                logger.info(f"Создан пример из документа: {doc.get('document_info', {}).get('filename', 'unknown')}")
+            else:
+                logger.warning(f"Пропущен документ {doc.get('document_info', {}).get('filename', 'unknown')} - недостаточно данных")
+                
+        except Exception as e:
+            logger.error(f"Ошибка при создании примера: {e}")
+            continue
     
-    # Проверяем соотношение длин (мотивировка обычно длиннее фактов)
-    if len(reasoning) < len(facts):
-        return False
-    
-    return True
+    logger.info(f"Создано обучающих примеров: {len(examples)}")
+    return examples
 
-def process_document(file_path: str) -> Dict[str, str]:
+def save_dataset(examples: List[Dict[str, str]], output_file: str, test_ratio: float = 0.2):
     """
-    Обрабатывает один документ и извлекает пары "факты → мотивировка"
+    Сохраняет датасет в формате JSONL с разделением на train/test
     
     Args:
-        file_path: Путь к JSON-файлу с документом
-        
-    Returns:
-        Словарь с фактами и мотивировкой, или пустой словарь, если пара не подходит
+        examples: Список обучающих примеров
+        output_file: Путь к основному файлу датасета
+        test_ratio: Доля данных для тестирования
     """
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        
-        # Извлекаем секции из документа
-        sections = data.get('sections', {})
-        facts = clean_text(sections.get('facts', ''))
-        reasoning = clean_text(sections.get('reasoning', ''))
-        
-        # Если нет фактов или мотивировки, пропускаем документ
-        if not facts or not reasoning:
-            return {}
-        
-        # Проверяем, подходит ли пара для обучения
-        if not filter_valid_pairs(facts, reasoning):
-            return {}
-        
-        # Возвращаем пару "факты → мотивировка"
-        return {
-            "facts": facts,
-            "reasoning": reasoning,
-            "source": os.path.basename(file_path)
-        }
-    
-    except Exception as e:
-        logging.error(f"Ошибка при обработке файла {file_path}: {str(e)}")
-        return {}
-
-def build_dataset(input_dir: str, output_file: str, test_split: float = 0.1) -> None:
-    """
-    Создает обучающий датасет из структурированных данных
-    
-    Args:
-        input_dir: Путь к директории со структурированными данными (JSON)
-        output_file: Путь к выходному файлу (JSONL)
-        test_split: Доля тестовых данных (от 0 до 1)
-    """
-    # Проверяем, существует ли входная директория
-    if not os.path.exists(input_dir):
-        logging.error(f"Директория {input_dir} не существует")
+    if not examples:
+        logger.error("Нет примеров для сохранения")
         return
     
-    # Получаем список всех JSON-файлов в директории
-    json_files = list(pathlib.Path(input_dir).glob('**/*.json'))
-    logging.info(f"Найдено {len(json_files)} JSON-файлов в директории {input_dir}")
+    # Разделяем на train и test
+    split_idx = int(len(examples) * (1 - test_ratio))
+    train_examples = examples[:split_idx]
+    test_examples = examples[split_idx:]
     
-    # Обрабатываем каждый файл и формируем датасет
-    dataset = []
+    # Сохраняем основной датасет
+    output_path = Path(output_file)
+    with open(output_path, 'w', encoding='utf-8') as f:
+        for example in train_examples:
+            f.write(json.dumps(example, ensure_ascii=False) + '\n')
     
-    for file_path in tqdm(json_files, desc="Обработка файлов"):
-        pair = process_document(str(file_path))
-        if pair:
-            dataset.append(pair)
+    # Сохраняем тестовый датасет
+    test_file = output_path.parent / f"{output_path.stem}_test.jsonl"
+    with open(test_file, 'w', encoding='utf-8') as f:
+        for example in test_examples:
+            f.write(json.dumps(example, ensure_ascii=False) + '\n')
     
-    logging.info(f"Сформировано {len(dataset)} пар 'факты → мотивировка'")
-    
-    # Перемешиваем датасет для лучшего обучения
-    random.shuffle(dataset)
-    
-    # Разделяем на обучающую и тестовую выборки
-    split_idx = int(len(dataset) * (1 - test_split))
-    train_data = dataset[:split_idx]
-    test_data = dataset[split_idx:]
-    
-    # Создаем директории для выходных файлов, если они не существуют
-    os.makedirs(os.path.dirname(output_file), exist_ok=True)
-    
-    # Сохраняем обучающую выборку
-    train_output = output_file
-    with open(train_output, 'w', encoding='utf-8') as f:
-        for item in train_data:
-            f.write(json.dumps(item, ensure_ascii=False) + '\n')
-    
-    # Сохраняем тестовую выборку
-    test_output = output_file.replace('.jsonl', '_test.jsonl')
-    with open(test_output, 'w', encoding='utf-8') as f:
-        for item in test_data:
-            f.write(json.dumps(item, ensure_ascii=False) + '\n')
-    
-    logging.info(f"Сохранено {len(train_data)} пар в файл {train_output}")
-    logging.info(f"Сохранено {len(test_data)} пар в файл {test_output}")
-    
-    # Сохраняем метаданные датасета
-    meta_output = output_file.replace('.jsonl', '_meta.json')
-    meta = {
-        "total_pairs": len(dataset),
-        "train_pairs": len(train_data),
-        "test_pairs": len(test_data),
-        "avg_facts_length": sum(len(item["facts"]) for item in dataset) // len(dataset) if dataset else 0,
-        "avg_reasoning_length": sum(len(item["reasoning"]) for item in dataset) // len(dataset) if dataset else 0,
+    # Сохраняем метаданные
+    meta_file = output_path.parent / f"{output_path.stem}_meta.json"
+    metadata = {
+        "total_examples": len(examples),
+        "train_examples": len(train_examples),
+        "test_examples": len(test_examples),
+        "test_ratio": test_ratio,
+        "output_file": str(output_path),
+        "test_file": str(test_file)
     }
     
-    with open(meta_output, 'w', encoding='utf-8') as f:
-        json.dump(meta, f, ensure_ascii=False, indent=2)
+    with open(meta_file, 'w', encoding='utf-8') as f:
+        json.dump(metadata, f, ensure_ascii=False, indent=2)
     
-    logging.info(f"Метаданные датасета сохранены в файл {meta_output}")
+    logger.info(f"Датасет сохранен:")
+    logger.info(f"  Train: {output_path} ({len(train_examples)} примеров)")
+    logger.info(f"  Test: {test_file} ({len(test_examples)} примеров)")
+    logger.info(f"  Metadata: {meta_file}")
 
 def main():
-    parser = argparse.ArgumentParser(description='Создание обучающего датасета для модели генерации мотивировочной части')
-    parser.add_argument('input_dir', help='Директория со структурированными данными (JSON)')
-    parser.add_argument('output_file', help='Путь к выходному файлу (JSONL)')
-    parser.add_argument('--test-split', type=float, default=0.1, help='Доля тестовых данных (от 0 до 1)')
+    parser = argparse.ArgumentParser(description='Создание обучающего датасета из проанализированных документов')
+    parser.add_argument('--analyzed-dir', type=str, required=True, 
+                       help='Директория с проанализированными документами (JSON файлы)')
+    parser.add_argument('--output-file', type=str, required=True,
+                       help='Путь к выходному файлу датасета (JSONL)')
+    parser.add_argument('--test-ratio', type=float, default=0.2,
+                       help='Доля данных для тестирования (по умолчанию 0.2)')
     
     args = parser.parse_args()
     
-    build_dataset(args.input_dir, args.output_file, args.test_split)
+    # Загружаем проанализированные документы
+    documents = load_analyzed_documents(args.analyzed_dir)
+    
+    if not documents:
+        logger.error("Не найдено проанализированных документов")
+        return
+    
+    # Создаем обучающие примеры
+    examples = create_training_examples(documents)
+    
+    if not examples:
+        logger.error("Не удалось создать обучающие примеры")
+        return
+    
+    # Сохраняем датасет
+    save_dataset(examples, args.output_file, args.test_ratio)
+    
+    logger.info("Создание датасета завершено успешно!")
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main() 
