@@ -179,17 +179,15 @@ def train_model(args):
     # Загрузка токенизатора и модели
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
     
-    # Принудительная загрузка на GPU если доступен с использованием safetensors
+    # Принудительная загрузка на GPU если доступен
     if torch.cuda.is_available():
         model = AutoModelForSeq2SeqLM.from_pretrained(
-            args.model_name, 
-            use_safetensors=True
+            args.model_name
         ).cuda()
         logger.info(f"Модель загружена на GPU: {torch.cuda.get_device_name()}")
     else:
         model = AutoModelForSeq2SeqLM.from_pretrained(
-            args.model_name,
-            use_safetensors=True
+            args.model_name
         ).cpu()
         logger.info("Модель загружена на CPU")
     

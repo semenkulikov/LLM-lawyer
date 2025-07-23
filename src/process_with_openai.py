@@ -10,6 +10,7 @@ from openai import OpenAI
 from openai import OpenAIError
 import argparse
 from loguru import logger
+from tqdm import tqdm
 
 class LegalDocumentProcessor:
     def __init__(self, api_key: str, model: str = "gpt-4o-mini"):
@@ -147,12 +148,18 @@ class LegalDocumentProcessor:
             Результат анализа или None при ошибке
         """
         try:
-            logger.info(f"Анализирую документ: {filename}")
+            logger.info(f"🔍 Анализ документа: {filename}")
+            logger.info(f"   📄 Размер текста: {len(text)} символов")
             
             # Создаем промпт
+            logger.info(f"   📝 Создание промпта...")
             prompt = self.create_analysis_prompt(text, filename)
+            logger.info(f"   📝 Промпт создан ({len(prompt)} символов)")
             
-            # Отправляем запрос к API
+            # Отправляем запрос к OpenAI
+            logger.info(f"   🤖 Отправка запроса к OpenAI (модель: {self.model})...")
+            start_time = time.time()
+            
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -163,25 +170,30 @@ class LegalDocumentProcessor:
                 max_tokens=4000   # Ограничиваем токены для экономии
             )
             
+            elapsed_time = time.time() - start_time
+            logger.info(f"   ✅ Ответ получен за {elapsed_time:.2f} секунд")
+            
             # Получаем ответ
             content = response.choices[0].message.content
+            logger.info(f"   📊 Размер ответа: {len(content)} символов")
             
             # Парсим JSON
+            logger.info(f"   🔧 Парсинг JSON...")
             try:
                 result = json.loads(content)
-                logger.info(f"Успешно проанализирован документ: {filename}")
+                logger.info(f"   ✅ JSON успешно распарсен")
                 return result
                 
             except json.JSONDecodeError as e:
-                logger.error(f"Ошибка парсинга JSON для {filename}: {e}")
-                logger.error(f"Полученный ответ: {content[:500]}...")
+                logger.error(f"❌ Ошибка парсинга JSON для {filename}: {e}")
+                logger.error(f"   📄 Полученный ответ: {content[:500]}...")
                 return None
                 
         except OpenAIError as e:
-            logger.error(f"Ошибка OpenAI API для {filename}: {e}")
+            logger.error(f"❌ Ошибка OpenAI API для {filename}: {e}")
             return None
         except Exception as e:
-            logger.error(f"Неожиданная ошибка при анализе {filename}: {e}")
+            logger.error(f"❌ Неожиданная ошибка при анализе {filename}: {e}")
             return None
 
     def save_result(self, result: Dict[str, Any], output_dir: str, filename: str) -> None:
@@ -205,7 +217,7 @@ class LegalDocumentProcessor:
             with open(output_path, 'w', encoding='utf-8') as f:
                 json.dump(result, f, ensure_ascii=False, indent=2)
                 
-            logger.info(f"Результат сохранен: {output_path}")
+            logger.info(f"💾 Результат сохранен: {output_path}")
             
         except Exception as e:
             logger.error(f"Ошибка при сохранении результата для {filename}: {e}")
@@ -224,16 +236,19 @@ class LegalDocumentProcessor:
         try:
             # Проверяем лимит документов
             if self.processed_count >= self.max_documents:
-                logger.info(f"Достигнут лимит документов ({self.max_documents}). Остановка обработки.")
+                logger.info(f"🛑 Достигнут лимит документов ({self.max_documents}). Остановка обработки.")
                 return False
             
             # Читаем файл
+            logger.info(f"📖 Чтение файла: {Path(input_file).name}")
             with open(input_file, 'r', encoding='utf-8') as f:
                 text = f.read()
             
             if not text.strip():
-                logger.warning(f"Файл {input_file} пустой, пропускаем")
+                logger.warning(f"⚠️  Файл {input_file} пустой, пропускаем")
                 return False
+            
+            logger.info(f"📄 Размер файла: {len(text)} символов")
             
             # Анализируем документ
             filename = Path(input_file).name
@@ -245,10 +260,11 @@ class LegalDocumentProcessor:
                 self.processed_count += 1
                 
                 # Небольшая пауза между запросами
+                logger.info(f"⏳ Пауза 1 секунда перед следующим документом...")
                 time.sleep(1)
                 return True
             else:
-                logger.error(f"Не удалось проанализировать документ: {input_file}")
+                logger.error(f"❌ Не удалось проанализировать документ: {input_file}")
                 return False
                 
         except Exception as e:
@@ -264,31 +280,51 @@ class LegalDocumentProcessor:
             output_dir: Директория для сохранения результатов
         """
         try:
+            logger.info(f"🚀 Начинаем обработку директории: {input_dir}")
+            
             # Получаем список текстовых файлов
+            logger.info(f"🔍 Поиск текстовых файлов...")
             text_files = list(Path(input_dir).glob("*.txt"))
             
             if not text_files:
-                logger.warning(f"В директории {input_dir} не найдено текстовых файлов")
+                logger.warning(f"⚠️  В директории {input_dir} не найдено текстовых файлов")
                 return
             
-            logger.info(f"Найдено {len(text_files)} текстовых файлов")
-            logger.info(f"Будет обработано максимум {self.max_documents} файлов")
+            logger.info(f"📁 Найдено {len(text_files)} текстовых файлов")
+            logger.info(f"🎯 Будет обработано максимум {self.max_documents} файлов")
+            logger.info(f"📊 Прогресс: 0/{min(len(text_files), self.max_documents)}")
             
-            # Обрабатываем файлы
+            # Обрабатываем файлы с прогресс-баром
             processed = 0
-            for text_file in text_files:
-                if self.process_text_file(str(text_file), output_dir):
-                    processed += 1
-                    logger.info(f"Обработано {processed}/{min(len(text_files), self.max_documents)} файлов")
+            with tqdm(total=min(len(text_files), self.max_documents), 
+                     desc="📄 Обработка документов", 
+                     unit="док") as pbar:
                 
-                # Проверяем лимит
-                if self.processed_count >= self.max_documents:
-                    break
+                for i, text_file in enumerate(text_files):
+                    logger.info(f"\n{'='*60}")
+                    logger.info(f"📄 Документ {i+1}/{min(len(text_files), self.max_documents)}: {text_file.name}")
+                    logger.info(f"{'='*60}")
+                    
+                    if self.process_text_file(str(text_file), output_dir):
+                        processed += 1
+                        pbar.update(1)
+                        logger.info(f"✅ Успешно обработано: {processed}/{min(len(text_files), self.max_documents)}")
+                    else:
+                        logger.warning(f"⚠️  Пропущен документ: {text_file.name}")
+                    
+                    # Проверяем лимит
+                    if self.processed_count >= self.max_documents:
+                        logger.info(f"🛑 Достигнут лимит документов, останавливаемся")
+                        break
             
-            logger.info(f"Обработка завершена. Успешно обработано {processed} файлов")
+            logger.info(f"\n🎉 Обработка завершена!")
+            logger.info(f"📊 Итоговая статистика:")
+            logger.info(f"   ✅ Успешно обработано: {processed} файлов")
+            logger.info(f"   📁 Всего найдено: {len(text_files)} файлов")
+            logger.info(f"   🎯 Лимит: {self.max_documents} файлов")
             
         except Exception as e:
-            logger.error(f"Ошибка при обработке директории {input_dir}: {e}")
+            logger.error(f"❌ Ошибка при обработке директории {input_dir}: {e}")
 
 def main():
     parser = argparse.ArgumentParser(description='Анализ судебных документов с помощью OpenAI API')
@@ -300,18 +336,42 @@ def main():
     
     args = parser.parse_args()
     
+    logger.info("="*80)
+    logger.info("🤖 ЗАПУСК АНАЛИЗА СУДЕБНЫХ ДОКУМЕНТОВ С OPENAI")
+    logger.info("="*80)
+    logger.info(f"📁 Входная директория: {args.input_dir}")
+    logger.info(f"📁 Выходная директория: {args.output_dir}")
+    logger.info(f"🤖 Модель OpenAI: {args.model}")
+    logger.info(f"🎯 Максимум документов: {args.max_docs}")
+    logger.info("="*80)
+    
     # Получаем API ключ
+    logger.info("🔑 Проверка OpenAI API ключа...")
     api_key = args.api_key or os.getenv("OPENAI_API_KEY")
     if not api_key:
-        logger.error("Не указан OpenAI API ключ. Используйте --api-key или переменную окружения OPENAI_API_KEY")
+        logger.error("❌ Не указан OpenAI API ключ. Используйте --api-key или переменную окружения OPENAI_API_KEY")
         return
     
+    logger.info("✅ OpenAI API ключ найден")
+    
     # Создаем процессор
+    logger.info("🔧 Инициализация процессора документов...")
     processor = LegalDocumentProcessor(api_key, args.model)
     processor.max_documents = args.max_docs
+    logger.info("✅ Процессор инициализирован")
     
     # Обрабатываем документы
+    logger.info("🚀 Начинаем обработку документов...")
+    start_time = time.time()
+    
     processor.process_directory(args.input_dir, args.output_dir)
+    
+    total_time = time.time() - start_time
+    logger.info("="*80)
+    logger.info(f"🎉 ОБРАБОТКА ЗАВЕРШЕНА!")
+    logger.info(f"⏱️  Общее время: {total_time:.2f} секунд")
+    logger.info(f"📊 Среднее время на документ: {total_time/max(1, processor.processed_count):.2f} секунд")
+    logger.info("="*80)
 
 if __name__ == "__main__":
     main() 

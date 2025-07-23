@@ -5,26 +5,38 @@ import os
 import sys
 import argparse
 import subprocess
+import time
 from pathlib import Path
 from loguru import logger
 
 def run_command(cmd, description):
     """Запуск команды с логированием"""
-    logger.info(f"Запуск: {description}")
-    logger.info(f"Команда: {' '.join(cmd)}")
+    logger.info(f"🚀 Запуск: {description}")
+    logger.info(f"💻 Команда: {' '.join(cmd)}")
+    logger.info(f"⏱️  Начало выполнения: {time.strftime('%H:%M:%S')}")
     
     try:
+        start_time = time.time()
         result = subprocess.run(cmd, check=True, capture_output=True, text=True, encoding='utf-8', errors='replace')
-        logger.info(f"✓ {description} завершено успешно")
+        elapsed_time = time.time() - start_time
+        
+        logger.info(f"✅ {description} завершено успешно за {elapsed_time:.2f} секунд")
         if result.stdout:
-            logger.info(f"Вывод: {result.stdout.strip()}")
+            # Показываем только последние строки вывода
+            lines = result.stdout.strip().split('\n')
+            if len(lines) > 10:
+                logger.info(f"📄 Последние строки вывода:")
+                for line in lines[-10:]:
+                    logger.info(f"   {line}")
+            else:
+                logger.info(f"📄 Вывод: {result.stdout.strip()}")
         return True
     except subprocess.CalledProcessError as e:
-        logger.error(f"✗ Ошибка в {description}: {e}")
+        logger.error(f"❌ Ошибка в {description}: {e}")
         if e.stdout:
-            logger.error(f"stdout: {e.stdout}")
+            logger.error(f"📄 stdout: {e.stdout}")
         if e.stderr:
-            logger.error(f"stderr: {e.stderr}")
+            logger.error(f"📄 stderr: {e.stderr}")
         return False
 
 def check_dependencies():
@@ -165,11 +177,19 @@ def step5_test_model(model_path="models/legal_model",
 
 def run_full_pipeline(args):
     """Запуск полного пайплайна"""
-    logger.info("=" * 60)
-    logger.info("ЗАПУСК ПОЛНОГО ПАЙПЛАЙНА ОБРАБОТКИ ДОКУМЕНТОВ")
-    logger.info("=" * 60)
+    start_time = time.time()
+    
+    logger.info("=" * 80)
+    logger.info("🚀 ЗАПУСК ПОЛНОГО ПАЙПЛАЙНА ОБРАБОТКИ ДОКУМЕНТОВ")
+    logger.info("=" * 80)
+    logger.info(f"📁 Входная директория: {args.input_dir or 'data/raw'}")
+    logger.info(f"🎯 Максимум документов: {args.max_docs}")
+    logger.info(f"🧠 Эпохи обучения: {args.epochs}")
+    logger.info(f"📦 Размер батча: {args.batch_size}")
+    logger.info("=" * 80)
     
     # Проверки
+    logger.info("🔍 Проверка системы...")
     if not check_dependencies():
         return False
     
@@ -180,23 +200,43 @@ def run_full_pipeline(args):
     
     # Выполнение шагов
     steps = [
-        ("Предобработка PDF", lambda: step1_preprocess(args.input_dir)),
-        ("Анализ с OpenAI", lambda: step2_analyze_with_openai(max_docs=args.max_docs)),
-        ("Создание датасета", step3_build_dataset),
-        ("Обучение модели", lambda: step4_train_model(epochs=args.epochs, batch_size=args.batch_size)),
-        ("Тестирование модели", step5_test_model)
+        ("📄 Предобработка PDF", lambda: step1_preprocess(args.input_dir)),
+        ("🤖 Анализ с OpenAI", lambda: step2_analyze_with_openai(max_docs=args.max_docs)),
+        ("📊 Создание датасета", step3_build_dataset),
+        ("🧠 Обучение модели", lambda: step4_train_model(epochs=args.epochs, batch_size=args.batch_size)),
+        ("✅ Тестирование модели", step5_test_model)
     ]
     
-    for step_name, step_func in steps:
-        logger.info(f"\n--- Шаг: {step_name} ---")
+    completed_steps = 0
+    for i, (step_name, step_func) in enumerate(steps, 1):
+        logger.info(f"\n{'='*60}")
+        logger.info(f"📋 Шаг {i}/{len(steps)}: {step_name}")
+        logger.info(f"{'='*60}")
+        
+        step_start = time.time()
         if not step_func():
-            logger.error(f"Пайплайн остановлен на шаге: {step_name}")
+            logger.error(f"❌ Пайплайн остановлен на шаге: {step_name}")
             return False
+        
+        step_time = time.time() - step_start
+        completed_steps += 1
+        logger.info(f"✅ Шаг {i} завершен за {step_time:.2f} секунд")
     
-    logger.info("\n" + "=" * 60)
-    logger.info("ПАЙПЛАЙН ЗАВЕРШЕН УСПЕШНО!")
-    logger.info("=" * 60)
-    logger.info("Для запуска GUI используйте: python gui/app.py")
+    total_time = time.time() - start_time
+    
+    logger.info("\n" + "=" * 80)
+    logger.info("🎉 ПАЙПЛАЙН ЗАВЕРШЕН УСПЕШНО!")
+    logger.info("=" * 80)
+    logger.info(f"📊 Статистика:")
+    logger.info(f"   ✅ Выполнено шагов: {completed_steps}/{len(steps)}")
+    logger.info(f"   ⏱️  Общее время: {total_time:.2f} секунд ({total_time/60:.1f} минут)")
+    logger.info(f"   🚀 Среднее время на шаг: {total_time/len(steps):.2f} секунд")
+    logger.info("=" * 80)
+    logger.info("🎯 Следующие шаги:")
+    logger.info("   📱 Для запуска GUI: python gui/app.py")
+    logger.info("   🧪 Для тестирования: python demo.py")
+    logger.info("   📊 Для мониторинга: python src/monitor_training.py")
+    logger.info("=" * 80)
     
     return True
 
