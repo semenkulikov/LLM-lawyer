@@ -1,0 +1,92 @@
+{
+  "model_config": {
+    "base_model": "Vikhrmodels/QVikhr-3-4B-Instruction",
+    "max_input_length": 4096,
+    "max_output_length": 4096,
+    "model_type": "causal_lm"
+  },
+  
+  "training_config": {
+    "learning_rate": 5e-6,
+    "warmup_steps": 1000,
+    "weight_decay": 0.01,
+    "gradient_accumulation_steps": 16,
+    "batch_size": 1,
+    "epochs": 15,
+    "logging_steps": 100,
+    "save_steps": 500,
+    "eval_steps": 500,
+    "save_total_limit": 5,
+    "fp16": true,
+    "gradient_checkpointing": true,
+    "optim": "adamw_torch",
+    "lr_scheduler_type": "cosine",
+    "warmup_ratio": 0.1,
+    "remove_unused_columns": false,
+    "load_best_model_at_end": true,
+    "metric_for_best_model": "eval_loss",
+    "greater_is_better": false,
+    "evaluation_strategy": "steps",
+    "save_strategy": "steps"
+  },
+  
+  "generation_config": {
+    "max_input_length": 2048,
+    "max_output_length": 2048,
+    "num_beams": 8,
+    "do_sample": true,
+    "temperature": 0.3,
+    "top_p": 0.95,
+    "top_k": 50,
+    "repetition_penalty": 1.2,
+    "length_penalty": 1.0,
+    "early_stopping": true,
+    "no_repeat_ngram_size": 3,
+    "pad_token_id": null,
+    "eos_token_id": null
+  },
+  
+  "openai_config": {
+    "model": "gpt-4o-mini",
+    "max_tokens": 4000,
+    "temperature": 0.1,
+    "max_retries": 3,
+    "retry_delay": 2,
+    "parallel_workers": 3
+  },
+  
+  "data_config": {
+    "min_facts_length": 100,
+    "min_reasoning_length": 200,
+    "max_facts_length": 3000,
+    "max_reasoning_length": 4000,
+    "train_test_split": 0.9,
+    "validation_split": 0.1
+  },
+  
+  "prompt_config": {
+    "system_prompt": "Ты - эксперт по анализу судебных документов с 20-летним опытом работы в Верховном Суде РФ. Твоя задача - максимально точно и детально проанализировать судебный документ и извлечь структурированную информацию для обучения нейросети.",
+    "instruction_template": "Проанализируй следующий судебный документ и извлеки фактические обстоятельства дела и мотивировочную часть решения.",
+    "input_template": "Документ:\n{text}\n\nИзвлеки факты и мотивировку в формате JSON:",
+    "output_template": "{{\n  \"facts\": \"фактические обстоятельства дела\",\n  \"reasoning\": \"мотивировочная часть решения\"\n}}"
+  },
+  
+  "optimization_config": {
+    "use_flash_attention": true,
+    "use_8bit_optimizer": true,
+    "use_4bit_quantization": false,
+    "use_gradient_checkpointing": true,
+    "use_mixed_precision": true,
+    "use_xformers": true,
+    "max_memory_usage": "24GB",
+    "device_map": "auto"
+  },
+  
+  "monitoring_config": {
+    "use_wandb": true,
+    "use_tensorboard": true,
+    "log_predictions": true,
+    "save_samples": true,
+    "evaluation_metrics": ["loss", "perplexity", "bleu", "rouge"]
+  }
+} 

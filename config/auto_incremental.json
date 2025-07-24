@@ -1,0 +1,34 @@
+{
+  "watch_directory": "data/new",
+  "model_path": "models/legal_model",
+  "output_dir": "models/incremental",
+  "epochs": 3,
+  "batch_size": 4,
+  "learning_rate": 5e-5,
+  "min_examples": 10,
+  "timeout": 3600,
+  "schedule_enabled": false,
+  "schedule_time": "02:00",
+  "backup_enabled": true,
+  "max_input_length": 1024,
+  "max_output_length": 1024,
+  "warmup_steps": 100,
+  "save_steps": 500,
+  "eval_steps": 500,
+  "notifications": {
+    "email_enabled": false,
+    "email_recipients": [],
+    "slack_enabled": false,
+    "slack_webhook": ""
+  },
+  "quality_checks": {
+    "enable_validation": true,
+    "min_quality_score": 0.7,
+    "max_loss_threshold": 2.0
+  },
+  "storage": {
+    "keep_backups": 5,
+    "cleanup_old_models": true,
+    "max_model_versions": 10
+  }
+} 

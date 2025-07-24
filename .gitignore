@@ -8,6 +8,9 @@ data
 models/
 input.txt
 output.txt
+demo_result.txt
+results/
+miniconda3/
 
 # Distribution / packaging
 .Python

@@ -77,55 +77,83 @@ python check_cuda.py
 python src/test_openai_key.py
 ```
 
-## Подробные инструкции
+## 🚀 Быстрый запуск (рекомендуется)
 
-### Вариант 1: Полный пайплайн (рекомендуется)
+### Для заказчика:
+1. **Скачайте проект** и распакуйте в удобное место
+2. **Откройте командную строку** в папке проекта
+3. **Запустите автоматическую установку**:
+   ```bash
+   python quick_start.py
+   ```
+4. **Следуйте инструкциям** на экране
 
-Запускает все этапы автоматически:
+### Для разработчика:
 
+#### Полный пайплайн (оптимизированный):
 ```bash
-python run_pipeline.py --input-dir data/raw --max-docs 5 --epochs 5 --batch-size 4
+# Автоматический запуск всего пайплайна
+python run_pipeline.py --epochs 15 --batch-size 1
+
+# Только анализ документов (без обучения)
+python run_pipeline.py --skip-training
+
+# Настройка для больших данных
+python run_pipeline.py --max-docs 1000 --max-workers 5 --epochs 20
 ```
 
-**Параметры:**
-- `--input-dir` - директория с PDF файлами (по умолчанию `data/raw`)
-- `--max-docs` - максимальное количество документов для анализа (по умолчанию 3)
-- `--epochs` - количество эпох обучения (по умолчанию 3)
-- `--batch-size` - размер батча (по умолчанию 4)
-
-### Вариант 2: Пошаговое выполнение
-
-#### Шаг 1: Предобработка PDF
+#### Отдельные компоненты:
 ```bash
-python src/preprocess.py --input-dir data/raw --output-dir data/processed
+# Предобработка PDF документов
+python src\preprocess.py --input-dir data\raw --output-dir data\processed
+
+# Параллельный анализ с OpenAI
+python src\process_large_dataset.py --input-dir data\processed --output-dir data\analyzed --max-workers 3
+
+# Создание обучающего датасета
+python src\build_dataset.py --analyzed-dir data\analyzed --output-file data\train_dataset.jsonl
+
+# Обучение модели QVikhr-3-4B (один GPU)
+python src\train.py --train_file data\train_dataset.jsonl --test_file data\train_dataset_test.jsonl --output_dir models\legal_model --epochs 3 --batch_size 1 --gradient_accumulation_steps 8 --max_length 2048
+
+# Распределенное обучение на нескольких GPU
+python run_distributed_training.py
+
+# Генерация мотивировочной части (оптимизированная)
+python src\inference.py --model_path models\legal_model --input_file input.txt --output_file output.txt --temperature 0.3 --num_beams 8
+
+# Тестирование модели
+python src\test_example.py --model_path models\legal_model --test_file data\train_dataset_test.jsonl --output_dir results
+
+# Мониторинг обучения
+python src\monitor_training.py --log_dir models --port 6006 --open_browser
+
+# Инкрементальное дообучение модели
+python src\incremental_train.py --model_path models\legal_model --new_data data\new_data.jsonl --output_dir models\incremental --epochs 3
+
+# Автоматическое дообучение (мониторинг файлов)
+python src\auto_incremental.py --watch
+
+# Автоматическое дообучение (планировщик)
+python src\auto_incremental.py --schedule
+
+# Управление версиями моделей
+python src\model_manager.py list
+python src\model_manager.py backup models\legal_model
+python src\model_manager.py cleanup --keep 5
+
+# Запуск GUI
+python gui\app.py
 ```
 
-#### Шаг 2: Анализ с OpenAI
+#### Быстрый тест системы:
 ```bash
-python src/process_with_openai.py --input-dir data/processed --output-dir data/analyzed --max-docs 3
+python quick_test.py
 ```
 
-#### Шаг 3: Создание датасета
+#### Интерактивное меню (если нужно):
 ```bash
-python src/build_dataset.py --analyzed-dir data/analyzed --output-file data/train_dataset.jsonl
-```
-
-#### Шаг 4: Обучение модели
-```bash
-# Дообучение QVikhr на наших данных (рекомендуется)
-python src/train.py --train_file data/train_dataset.jsonl --test_file data/train_dataset_test.jsonl --output_dir models/legal_model --epochs 3 --batch_size 4
-```
-
-#### Шаг 5: Тестирование модели
-```bash
-# Тестирование QVikhr (использует модель по умолчанию)
-python src/test_example.py --test_file data/train_dataset_test.jsonl --output_dir results
-```
-
-### Вариант 3: Только предобработка (без обучения)
-
-```bash
-python run_pipeline.py --skip-training --max-docs 10
+# Можно добавить в run_pipeline.py функцию show_menu() если потребуется
 ```
 
 ## Использование обученной модели
@@ -184,6 +212,35 @@ LLM-lawyer/
 - `nltk` - Обработка естественного языка
 - `tqdm` - Прогресс-бары
 - `numpy` - Численные вычисления
+
+## Инкрементальное дообучение
+
+Система поддерживает автоматическое дообучение модели на новых данных:
+
+### Ручное дообучение
+```bash
+python src\incremental_train.py --model_path models\legal_model --new_data data\new_data.jsonl --output_dir models\incremental --epochs 3
+```
+
+### Автоматическое дообучение
+- **Мониторинг файлов**: Автоматически обрабатывает новые файлы данных
+- **Планировщик**: Запускает дообучение по расписанию
+- **Резервные копии**: Автоматическое создание бэкапов перед дообучением
+
+### Управление версиями моделей
+```bash
+# Список всех моделей
+python src\model_manager.py list
+
+# Создание резервной копии
+python src\model_manager.py backup models\legal_model
+
+# Очистка старых версий
+python src\model_manager.py cleanup --keep 5
+
+# Сравнение моделей
+python src\model_manager.py compare models\model_v1 models\model_v2
+```
 
 ## Мониторинг обучения
 

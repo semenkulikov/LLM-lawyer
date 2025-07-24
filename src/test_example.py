@@ -1,12 +1,27 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import json
 import os
+import sys
+import json
 import random
 import argparse
+import logging
 from inference import load_model, generate
-from loguru import logger
+
+# Настройка кодировки для Windows
+if sys.platform == "win32":
+    import codecs
+    sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
+    sys.stderr = codecs.getwriter("utf-8")(sys.stderr.detach())
+
+# Настройка логирования
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+logger = logging.getLogger(__name__)
 
 def get_random_example(test_file, seed=None):
     """
@@ -66,24 +81,25 @@ def evaluate_example(model_path, test_file, output_dir=None, seed=None):
     print("\n" + "="*80)
     print("ФАКТЫ:")
     print("-"*80)
-    try:
-        print(facts)
-    except UnicodeEncodeError:
-        print(facts.encode('utf-8', errors='replace').decode('utf-8'))
+    
+    # Безопасный вывод для Windows
+    safe_facts = facts.encode('utf-8', errors='replace').decode('utf-8')
+    print(safe_facts)
+    
     print("\n" + "="*80)
     print("СГЕНЕРИРОВАННАЯ МОТИВИРОВКА:")
     print("-"*80)
-    try:
-        print(generated)
-    except UnicodeEncodeError:
-        print(generated.encode('utf-8', errors='replace').decode('utf-8'))
+    
+    safe_generated = generated.encode('utf-8', errors='replace').decode('utf-8')
+    print(safe_generated)
+    
     print("\n" + "="*80)
     print("ЭТАЛОННАЯ МОТИВИРОВКА:")
     print("-"*80)
-    try:
-        print(reference)
-    except UnicodeEncodeError:
-        print(reference.encode('utf-8', errors='replace').decode('utf-8'))
+    
+    safe_reference = reference.encode('utf-8', errors='replace').decode('utf-8')
+    print(safe_reference)
+    
     print("\n" + "="*80)
     
     # Сохранение результатов, если указана директория

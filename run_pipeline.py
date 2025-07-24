@@ -106,8 +106,8 @@ def step1_preprocess(input_dir=None, output_dir="data/processed"):
     
     return run_command(cmd, "Предобработка PDF документов")
 
-def step2_analyze_with_openai(input_dir="data/processed", output_dir="data/analyzed", max_docs=3):
-    """Шаг 2: Анализ документов с помощью OpenAI"""
+def step2_analyze_with_openai(input_dir="data/processed", output_dir="data/analyzed", max_docs=50, max_workers=5):
+    """Шаг 2: Анализ документов с OpenAI (оптимизированный)"""
     if not Path(input_dir).exists():
         logger.warning(f"Директория {input_dir} не существует. Пропускаем анализ.")
         return True
@@ -116,10 +116,11 @@ def step2_analyze_with_openai(input_dir="data/processed", output_dir="data/analy
         sys.executable, "src/process_with_openai.py",
         "--input-dir", input_dir,
         "--output-dir", output_dir,
-        "--max-docs", str(max_docs)
+        "--max-docs", str(max_docs),
+        "--max-workers", str(max_workers)
     ]
     
-    return run_command(cmd, "Анализ документов с OpenAI")
+    return run_command(cmd, "Анализ документов с OpenAI (оптимизированный)")
 
 def step3_build_dataset(analyzed_dir="data/analyzed", output_file="data/train_dataset.jsonl"):
     """Шаг 3: Создание обучающего датасета"""
@@ -138,9 +139,9 @@ def step3_build_dataset(analyzed_dir="data/analyzed", output_file="data/train_da
 def step4_train_model(train_file="data/train_dataset.jsonl", 
                      test_file="data/train_dataset_test.jsonl",
                      output_dir="models/legal_model",
-                     epochs=3,
-                     batch_size=4):
-    """Шаг 4: Обучение модели"""
+                     epochs=15,
+                     batch_size=1):
+    """Шаг 4: Обучение модели (оптимизированное)"""
     if not Path(train_file).exists():
         logger.warning(f"Файл {train_file} не существует. Пропускаем обучение.")
         return True
@@ -151,10 +152,13 @@ def step4_train_model(train_file="data/train_dataset.jsonl",
         "--test_file", test_file,
         "--output_dir", output_dir,
         "--epochs", str(epochs),
-        "--batch_size", str(batch_size)
+        "--batch_size", str(batch_size),
+        "--learning_rate", "1e-5",  # Оптимизировано для Vinthroy
+        "--warmup_steps", "50",     # Уменьшено для Vinthroy
+        "--gradient_accumulation_steps", "8"  # Оптимизировано для Vinthroy
     ]
     
-    return run_command(cmd, "Обучение модели")
+    return run_command(cmd, "Обучение модели (оптимизированное)")
 
 def step5_test_model(model_path="models/legal_model", 
                     test_file="data/train_dataset_test.jsonl",
@@ -201,7 +205,7 @@ def run_full_pipeline(args):
     # Выполнение шагов
     steps = [
         ("📄 Предобработка PDF", lambda: step1_preprocess(args.input_dir)),
-        ("🤖 Анализ с OpenAI", lambda: step2_analyze_with_openai(max_docs=args.max_docs)),
+        ("🤖 Анализ с OpenAI", lambda: step2_analyze_with_openai(max_docs=args.max_docs, max_workers=args.max_workers)),
         ("📊 Создание датасета", step3_build_dataset),
         ("🧠 Обучение модели", lambda: step4_train_model(epochs=args.epochs, batch_size=args.batch_size)),
         ("✅ Тестирование модели", step5_test_model)
@@ -243,9 +247,10 @@ def run_full_pipeline(args):
 def main():
     parser = argparse.ArgumentParser(description='Полный пайплайн обработки юридических документов')
     parser.add_argument('--input-dir', type=str, help='Директория с исходными PDF файлами')
-    parser.add_argument('--max-docs', type=int, default=3, help='Максимальное количество документов для анализа')
-    parser.add_argument('--epochs', type=int, default=3, help='Количество эпох обучения')
-    parser.add_argument('--batch-size', type=int, default=4, help='Размер батча для обучения')
+    parser.add_argument('--max-docs', type=int, default=100, help='Максимальное количество документов для анализа')
+    parser.add_argument('--max-workers', type=int, default=3, help='Количество параллельных потоков для анализа')
+    parser.add_argument('--epochs', type=int, default=3, help='Количество эпох обучения (оптимизировано для Vinthroy)')
+    parser.add_argument('--batch-size', type=int, default=1, help='Размер батча (оптимизировано для Vinthroy)')
     parser.add_argument('--skip-training', action='store_true', help='Пропустить обучение модели')
     
     args = parser.parse_args()
@@ -258,7 +263,7 @@ def main():
         create_directories()
         
         step1_preprocess(args.input_dir)
-        step2_analyze_with_openai(max_docs=args.max_docs)
+        step2_analyze_with_openai(max_docs=args.max_docs, max_workers=args.max_workers)
         step3_build_dataset()
         
         logger.info("Предобработка завершена. Для обучения запустите: python src/train.py")

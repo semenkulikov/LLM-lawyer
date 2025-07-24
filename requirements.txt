@@ -1,16 +1,32 @@
-torch>=2.0.0
-transformers>=4.30.0
-datasets>=2.12.0
+# Основные зависимости
 openai>=1.0.0
-pymupdf>=1.23.0
-nltk>=3.8.1
 tqdm>=4.65.0
 numpy>=1.24.0
-loguru>=0.7.0
-accelerate>=0.20.0
+nltk>=3.8.1
+pymupdf>=1.23.0
+
+# NLP
+transformers>=4.35.0
+datasets>=2.14.0
 sentencepiece>=0.1.99
-tokenizers>=0.13.0
-wandb>=0.15.0
-tensorboard>=2.13.0
-tkinter
+tokenizers>=0.15.0
+accelerate>=0.24.0
+
+# Мониторинг и логирование
+wandb>=0.16.0
+tensorboard>=2.14.0
+loguru>=0.7.0
+
+# GUI и визуализация
 pillow>=9.0.0
+
+# Дополнительные утилиты
+scikit-learn>=1.3.0
+pandas>=2.0.0
+matplotlib>=3.7.0
+seaborn>=0.12.0
+psutil>=5.9.0
+
+# Автоматическое дообучение
+schedule>=1.2.0
+watchdog>=3.0.0

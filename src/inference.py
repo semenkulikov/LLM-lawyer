@@ -4,12 +4,12 @@
 import os
 import argparse
 import torch
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+from transformers import AutoTokenizer, AutoModelForCausalLM
 from loguru import logger
 
 def load_model(model_path):
     """
-    Загрузка предобученной модели и токенизатора
+    Загрузка предобученной модели QVikhr-3-4B и токенизатора
     
     Args:
         model_path: Путь к директории с сохраненной моделью
@@ -18,17 +18,25 @@ def load_model(model_path):
         model: Загруженная модель
         tokenizer: Загруженный токенизатор
     """
-    logger.info(f"Загрузка модели из {model_path}")
+    logger.info(f"Загрузка модели QVikhr-3-4B из {model_path}")
     
     try:
         tokenizer = AutoTokenizer.from_pretrained(model_path)
-        model = AutoModelForSeq2SeqLM.from_pretrained(model_path)
         
-        # Переносим модель на доступное устройство
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        model = model.to(device)
+        # Загрузка модели с GPU оптимизациями
+        if torch.cuda.is_available():
+            model = AutoModelForCausalLM.from_pretrained(
+                model_path,
+                torch_dtype=torch.float16,  # Mixed precision
+                device_map="auto",  # Автоматическое распределение
+                low_cpu_mem_usage=True,
+            )
+            logger.info("Модель QVikhr-3-4B загружена на GPU с автоматическим распределением памяти")
+        else:
+            logger.warning("CUDA недоступна! Модель будет загружена на CPU (медленно)")
+            model = AutoModelForCausalLM.from_pretrained(model_path)
+            logger.info("Модель загружена на CPU")
         
-        logger.info(f"Модель успешно загружена и перенесена на {device}")
         return model, tokenizer
     
     except Exception as e:
@@ -41,7 +49,7 @@ def generate(model, tokenizer, facts, max_input_length=1024, max_output_length=1
     Генерация мотивировочной части на основе фактических обстоятельств дела
     
     Args:
-        model: Предобученная модель
+        model: Предобученная модель QVikhr-3-4B
         tokenizer: Токенизатор для модели
         facts: Текст с фактическими обстоятельствами дела
         max_input_length: Максимальная длина входной последовательности
@@ -54,41 +62,60 @@ def generate(model, tokenizer, facts, max_input_length=1024, max_output_length=1
     Returns:
         generated_text: Сгенерированная мотивировочная часть
     """
-    device = model.device
+    # Определяем устройство для входных данных
+    if hasattr(model, 'device'):
+        device = model.device
+    else:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    
+    # Формируем промпт для CausalLM
+    prompt = f"Факты: {facts}\nМотивировка:"
     
     # Токенизация входных данных
     inputs = tokenizer(
-        facts,
+        prompt,
         max_length=max_input_length,
-        padding="max_length",
+        padding=True,
         truncation=True,
         return_tensors="pt"
-    ).to(device)
+    )
     
-    # Генерация текста
+    # Перемещаем входные данные на правильное устройство
+    if device.type == 'cuda':
+        inputs = {k: v.to(device) for k, v in inputs.items()}
+    
+    # Генерация текста с оптимизированными параметрами
     with torch.no_grad():
         output_ids = model.generate(
             input_ids=inputs["input_ids"],
             attention_mask=inputs["attention_mask"],
-            max_length=max_output_length,
+            max_new_tokens=max_output_length,  # Используем max_new_tokens
             num_beams=num_beams,
             do_sample=do_sample,
             temperature=temperature,
             top_p=top_p,
             pad_token_id=tokenizer.pad_token_id,
             eos_token_id=tokenizer.eos_token_id,
+            repetition_penalty=1.3,  # Увеличенный штраф за повторения
+            length_penalty=0.8,      # Штраф за длину
+            early_stopping=True,     # Остановка при EOS
+            no_repeat_ngram_size=3,  # Запрет повторения n-грамм
         )
     
     # Декодирование результата
     generated_text = tokenizer.decode(output_ids[0], skip_special_tokens=True)
     
+    # Извлекаем только сгенерированную часть (после "Мотивировка:")
+    if "Мотивировка:" in generated_text:
+        generated_text = generated_text.split("Мотивировка:")[1].strip()
+    
     return generated_text
 
 def main():
-    parser = argparse.ArgumentParser(description='Генерация мотивировочной части решения суда')
+    parser = argparse.ArgumentParser(description='Генерация мотивировочной части решения суда с QVikhr-3-4B')
     
     # Аргументы
-    parser.add_argument('--model_path', type=str, default='models/legal_model', help='Путь к директории с сохраненной моделью (по умолчанию использует QVikhr)')
+    parser.add_argument('--model_path', type=str, default='models/legal_model', help='Путь к директории с сохраненной моделью QVikhr-3-4B')
     parser.add_argument('--input_text', type=str, help='Текст с фактическими обстоятельствами дела')
     parser.add_argument('--input_file', type=str, help='Файл с фактическими обстоятельствами дела')
     parser.add_argument('--output_file', type=str, help='Файл для сохранения сгенерированной мотивировки')
@@ -107,8 +134,8 @@ def main():
     
     # Проверка существования модели
     if not os.path.exists(args.model_path):
-        logger.error(f"Модель не найдена по пути: {args.model_path}")
-        logger.error("Убедитесь, что модель QVikhr загружена в директорию models/legal_model")
+        logger.error(f"Модель QVikhr-3-4B не найдена по пути: {args.model_path}")
+        logger.error("Убедитесь, что модель обучена и сохранена в указанной директории")
         return
     
     # Загрузка модели и токенизатора
@@ -122,7 +149,7 @@ def main():
         facts = args.input_text
     
     # Генерация мотивировочной части
-    logger.info("Генерация мотивировочной части...")
+    logger.info("Генерация мотивировочной части с QVikhr-3-4B...")
     reasoning = generate(
         model=model,
         tokenizer=tokenizer,
@@ -142,7 +169,7 @@ def main():
         logger.info(f"Результат сохранен в файл {args.output_file}")
     else:
         print("\n" + "="*80 + "\n")
-        print("СГЕНЕРИРОВАННАЯ МОТИВИРОВОЧНАЯ ЧАСТЬ:\n")
+        print("СГЕНЕРИРОВАННАЯ МОТИВИРОВОЧНАЯ ЧАСТЬ (QVikhr-3-4B):\n")
         print(reasoning)
         print("\n" + "="*80)
 
