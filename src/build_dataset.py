@@ -131,10 +131,50 @@ def save_dataset(examples: List[Dict[str, str]], output_file: str, test_ratio: f
     logger.info(f"  Test: {test_file} ({len(test_examples)} примеров)")
     logger.info(f"  Metadata: {meta_file}")
 
+def create_simple_dataset_from_text(text_file: str) -> List[Dict[str, str]]:
+    """
+    Создает простой датасет из текстового файла
+    
+    Args:
+        text_file: Путь к текстовому файлу
+        
+    Returns:
+        List[Dict[str, str]]: Список примеров
+    """
+    try:
+        with open(text_file, 'r', encoding='utf-8') as f:
+            text = f.read()
+        
+        # Разбиваем текст на части (например, по абзацам)
+        paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
+        
+        examples = []
+        for i, paragraph in enumerate(paragraphs):
+            if len(paragraph) > 100:  # Минимальная длина
+                # Создаем простой пример: факты = первая половина, мотивировка = вторая половина
+                mid_point = len(paragraph) // 2
+                facts = paragraph[:mid_point].strip()
+                reasoning = paragraph[mid_point:].strip()
+                
+                if len(facts) > 50 and len(reasoning) > 50:
+                    examples.append({
+                        "facts": facts,
+                        "reasoning": reasoning
+                    })
+        
+        logger.info(f"Создано {len(examples)} простых примеров из текстового файла")
+        return examples
+        
+    except Exception as e:
+        logger.error(f"Ошибка при создании датасета из текста: {e}")
+        return []
+
 def main():
     parser = argparse.ArgumentParser(description='Создание обучающего датасета из проанализированных документов')
-    parser.add_argument('--analyzed-dir', type=str, required=True, 
+    parser.add_argument('--analyzed-dir', type=str, 
                        help='Директория с проанализированными документами (JSON файлы)')
+    parser.add_argument('--input-file', type=str,
+                       help='Текстовый файл для создания простого датасета')
     parser.add_argument('--output-file', type=str, required=True,
                        help='Путь к выходному файлу датасета (JSONL)')
     parser.add_argument('--test-ratio', type=float, default=0.2,
@@ -142,15 +182,26 @@ def main():
     
     args = parser.parse_args()
     
-    # Загружаем проанализированные документы
-    documents = load_analyzed_documents(args.analyzed_dir)
+    examples = []
     
-    if not documents:
-        logger.error("Не найдено проанализированных документов")
+    if args.analyzed_dir:
+        # Загружаем проанализированные документы
+        documents = load_analyzed_documents(args.analyzed_dir)
+        
+        if not documents:
+            logger.error("Не найдено проанализированных документов")
+            return
+        
+        # Создаем обучающие примеры
+        examples = create_training_examples(documents)
+        
+    elif args.input_file:
+        # Создаем простой датасет из текстового файла
+        examples = create_simple_dataset_from_text(args.input_file)
+        
+    else:
+        parser.error("Необходимо указать либо --analyzed-dir, либо --input-file")
         return
-    
-    # Создаем обучающие примеры
-    examples = create_training_examples(documents)
     
     if not examples:
         logger.error("Не удалось создать обучающие примеры")

@@ -1,5 +1,5 @@
 {
-  "watch_directory": "data/new",
+  "watch_directory": "data/raw",
   "model_path": "models/legal_model",
   "output_dir": "models/incremental",
   "epochs": 3,

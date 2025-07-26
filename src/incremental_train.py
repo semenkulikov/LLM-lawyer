@@ -126,7 +126,7 @@ def prepare_dataset(examples, tokenizer, max_input_length=1024, max_output_lengt
             # Формат: "Факты: {facts}\nМотивировка: {reasoning}"
             combined_text = f"Факты: {fact}\nМотивировка: {reasoning}"
             combined_texts.append(combined_text)
-        
+    
         # Токенизация объединенного текста
         tokenized = tokenizer(
             combined_texts,
@@ -264,7 +264,7 @@ def main():
     # Обязательные аргументы
     parser.add_argument('--model_path', type=str, required=True, 
                        help='Путь к существующей модели для дообучения')
-    parser.add_argument('--new_data', type=str, required=True,
+    parser.add_argument('--new_data', type=str, required=True, 
                        help='Путь к файлу с новыми данными (JSONL формат)')
     parser.add_argument('--output_dir', type=str, required=True,
                        help='Директория для сохранения дообученной модели')
@@ -301,8 +301,8 @@ def main():
         
         if not new_examples:
             logger.error("Нет данных для дообучения")
-            return
-        
+        return
+    
         # Подготовка датасета
         train_dataset = prepare_dataset(
             new_examples, 
@@ -310,7 +310,7 @@ def main():
             args.max_input_length, 
             args.max_output_length
         )
-        
+    
         # Инкрементальное обучение
         train_result = incremental_train(
             model=model,
@@ -324,7 +324,7 @@ def main():
             save_steps=args.save_steps,
             eval_steps=args.eval_steps
         )
-        
+    
         logger.info(f"Инкрементальное дообучение завершено успешно!")
         logger.info(f"Дообученная модель сохранена в: {args.output_dir}")
         

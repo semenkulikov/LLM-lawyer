@@ -215,9 +215,21 @@ if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser(description='Конвертер PDF в текст')
-    parser.add_argument('--input-dir', required=True, help='Директория с исходными PDF-файлами')
-    parser.add_argument('--output-dir', required=True, help='Директория для сохранения извлеченных текстов')
+    parser.add_argument('--input-dir', help='Директория с исходными PDF-файлами')
+    parser.add_argument('--output-dir', help='Директория для сохранения извлеченных текстов')
+    parser.add_argument('--input-file', help='Отдельный PDF файл для обработки')
     
     args = parser.parse_args()
     
-    process_all_pdfs(args.input_dir, args.output_dir) 
+    if args.input_file:
+        # Обработка одного файла
+        if not args.output_dir:
+            parser.error("--output-dir требуется при использовании --input-file")
+        
+        output_path = os.path.join(args.output_dir, os.path.splitext(os.path.basename(args.input_file))[0] + '.txt')
+        convert_pdf_to_text(args.input_file, output_path)
+    elif args.input_dir and args.output_dir:
+        # Обработка директории
+        process_all_pdfs(args.input_dir, args.output_dir)
+    else:
+        parser.error("Необходимо указать либо --input-file и --output-dir, либо --input-dir и --output-dir") 
