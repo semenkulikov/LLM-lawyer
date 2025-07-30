@@ -270,9 +270,9 @@ def main():
                        help='Директория для сохранения дообученной модели')
     
     # Параметры обучения
-    parser.add_argument('--epochs', type=int, default=3, help='Количество эпох')
-    parser.add_argument('--batch_size', type=int, default=4, help='Размер батча')
-    parser.add_argument('--learning_rate', type=float, default=5e-5, help='Скорость обучения')
+    parser.add_argument('--epochs', type=int, default=10, help='Количество эпох (оптимизировано для больших датасетов)')
+    parser.add_argument('--batch_size', type=int, default=8, help='Размер батча (оптимизировано для больших датасетов)')
+    parser.add_argument('--learning_rate', type=float, default=5e-5, help='Скорость обучения (оптимизировано для больших датасетов)')
     parser.add_argument('--max_input_length', type=int, default=1024, help='Максимальная длина входной последовательности')
     parser.add_argument('--max_output_length', type=int, default=1024, help='Максимальная длина выходной последовательности')
     

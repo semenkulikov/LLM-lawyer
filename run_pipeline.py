@@ -9,6 +9,27 @@ import time
 from pathlib import Path
 from loguru import logger
 
+# Загружаем переменные окружения из .env файла
+def load_env():
+    """Загрузка переменных окружения из .env файла"""
+    env_file = Path('.env')
+    if env_file.exists():
+        logger.info("📄 Загрузка переменных окружения из .env файла...")
+        with open(env_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    # Убираем кавычки из значения
+                    value = value.strip().strip('"').strip("'")
+                    os.environ[key.strip()] = value
+        logger.success("✅ Переменные окружения загружены")
+    else:
+        logger.warning("⚠️  Файл .env не найден")
+
+# Загружаем переменные окружения при запуске
+load_env()
+
 def run_command(cmd, description):
     """Запуск команды с логированием"""
     logger.info(f"🚀 Запуск: {description}")
@@ -106,7 +127,7 @@ def step1_preprocess(input_dir=None, output_dir="data/processed"):
     
     return run_command(cmd, "Предобработка PDF документов")
 
-def step2_analyze_with_openai(input_dir="data/processed", output_dir="data/analyzed", max_docs=50000000, max_workers=5):
+def step2_analyze_with_openai(input_dir="data/processed", output_dir="data/analyzed", max_docs=50000, max_workers=10):
     """Шаг 2: Анализ документов с OpenAI (оптимизированный)"""
     if not Path(input_dir).exists():
         logger.warning(f"Директория {input_dir} не существует. Пропускаем анализ.")
@@ -139,8 +160,8 @@ def step3_build_dataset(analyzed_dir="data/analyzed", output_file="data/train_da
 def step4_train_model(train_file="data/train_dataset.jsonl", 
                      test_file="data/train_dataset_test.jsonl",
                      output_dir="models/legal_model",
-                     epochs=25,
-                     batch_size=5):
+                     epochs=50,
+                     batch_size=8):
     """Шаг 4: Обучение модели (оптимизированное)"""
     if not Path(train_file).exists():
         logger.warning(f"Файл {train_file} не существует. Пропускаем обучение.")
@@ -247,10 +268,10 @@ def run_full_pipeline(args):
 def main():
     parser = argparse.ArgumentParser(description='Полный пайплайн обработки юридических документов')
     parser.add_argument('--input-dir', type=str, help='Директория с исходными PDF файлами')
-    parser.add_argument('--max-docs', type=int, default=100, help='Максимальное количество документов для анализа')
-    parser.add_argument('--max-workers', type=int, default=3, help='Количество параллельных потоков для анализа')
-    parser.add_argument('--epochs', type=int, default=3, help='Количество эпох обучения (оптимизировано для Vinthroy)')
-    parser.add_argument('--batch-size', type=int, default=1, help='Размер батча (оптимизировано для Vinthroy)')
+    parser.add_argument('--max-docs', type=int, default=50000, help='Максимальное количество документов для анализа')
+    parser.add_argument('--max-workers', type=int, default=10, help='Количество параллельных потоков для анализа')
+    parser.add_argument('--epochs', type=int, default=50, help='Количество эпох обучения (оптимизировано для больших датасетов)')
+    parser.add_argument('--batch-size', type=int, default=8, help='Размер батча (оптимизировано для больших датасетов)')
     parser.add_argument('--skip-training', action='store_true', help='Пропустить обучение модели')
     
     args = parser.parse_args()

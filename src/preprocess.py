@@ -230,6 +230,6 @@ if __name__ == "__main__":
         convert_pdf_to_text(args.input_file, output_path)
     elif args.input_dir and args.output_dir:
         # Обработка директории
-        process_all_pdfs(args.input_dir, args.output_dir)
+    process_all_pdfs(args.input_dir, args.output_dir) 
     else:
         parser.error("Необходимо указать либо --input-file и --output-dir, либо --input-dir и --output-dir") 

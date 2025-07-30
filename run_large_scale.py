@@ -10,6 +10,27 @@ import json
 from pathlib import Path
 from loguru import logger
 
+# Загружаем переменные окружения из .env файла
+def load_env():
+    """Загрузка переменных окружения из .env файла"""
+    env_file = Path('.env')
+    if env_file.exists():
+        logger.info("📄 Загрузка переменных окружения из .env файла...")
+        with open(env_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    # Убираем кавычки из значения
+                    value = value.strip().strip('"').strip("'")
+                    os.environ[key.strip()] = value
+        logger.success("✅ Переменные окружения загружены")
+    else:
+        logger.warning("⚠️  Файл .env не найден")
+
+# Загружаем переменные окружения при запуске
+load_env()
+
 def setup_logging():
     """Настройка логирования для больших объемов"""
     logger.remove()
@@ -178,8 +199,8 @@ def run_large_scale_pipeline(args):
 def main():
     parser = argparse.ArgumentParser(description='Пайплайн для обработки 50,000+ документов')
     parser.add_argument('--input-dir', type=str, default='data/raw', help='Директория с PDF документами')
-    parser.add_argument('--batch-size', type=int, default=100, help='Размер батча для обработки')
-    parser.add_argument('--epochs', type=int, default=10, help='Количество эпох обучения')
+    parser.add_argument('--batch-size', type=int, default=1000, help='Размер батча для обработки')
+    parser.add_argument('--epochs', type=int, default=50, help='Количество эпох обучения')
     parser.add_argument('--mode', choices=['batch', 'full'], default='batch', help='Режим обработки')
     
     args = parser.parse_args()

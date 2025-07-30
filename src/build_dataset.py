@@ -185,15 +185,15 @@ def main():
     examples = []
     
     if args.analyzed_dir:
-        # Загружаем проанализированные документы
-        documents = load_analyzed_documents(args.analyzed_dir)
-        
-        if not documents:
-            logger.error("Не найдено проанализированных документов")
-            return
-        
-        # Создаем обучающие примеры
-        examples = create_training_examples(documents)
+    # Загружаем проанализированные документы
+    documents = load_analyzed_documents(args.analyzed_dir)
+    
+    if not documents:
+        logger.error("Не найдено проанализированных документов")
+        return
+    
+    # Создаем обучающие примеры
+    examples = create_training_examples(documents)
         
     elif args.input_file:
         # Создаем простой датасет из текстового файла

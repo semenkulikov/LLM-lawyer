@@ -24,7 +24,7 @@ class LegalDocumentProcessor:
         self.client = OpenAI(api_key=api_key)
         self.model = model
         self.processed_count = 0
-        self.max_documents = 3  # Ограничение для тестирования
+        self.max_documents = 50000  # Максимальное количество документов для обработки
         
     def create_analysis_prompt(self, text: str, filename: str) -> str:
         """
