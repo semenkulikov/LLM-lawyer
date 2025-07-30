@@ -275,7 +275,7 @@ class AsyncLegalDocumentProcessor:
         except Exception as e:
             logger.error(f"❌ Ошибка сохранения результата для {filename}: {e}")
 
-    async def process_text_file_async(self, session: aiohttp.ClientSession, input_file: str, output_dir: str) -> bool:
+    async def process_text_file_async(self, session: aiohttp.ClientSession, input_file: str, output_dir: str, proxy_settings: str = None) -> bool:
         """
         Асинхронная обработка одного текстового файла
         
