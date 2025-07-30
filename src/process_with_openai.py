@@ -12,6 +12,22 @@ import argparse
 from loguru import logger
 from tqdm import tqdm
 
+def load_env():
+    """Загрузка переменных окружения из .env файла"""
+    env_file = Path('.env')
+    if env_file.exists():
+        with open(env_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    # Убираем кавычки из значения
+                    value = value.strip().strip('"').strip("'")
+                    os.environ[key.strip()] = value
+
+# Загружаем переменные окружения
+load_env()
+
 class LegalDocumentProcessor:
     def __init__(self, api_key: str, model: str = "gpt-4o-mini"):
         """
