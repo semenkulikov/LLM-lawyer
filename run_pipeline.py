@@ -106,7 +106,7 @@ def step1_preprocess(input_dir=None, output_dir="data/processed"):
     
     return run_command(cmd, "Предобработка PDF документов")
 
-def step2_analyze_with_openai(input_dir="data/processed", output_dir="data/analyzed", max_docs=50, max_workers=5):
+def step2_analyze_with_openai(input_dir="data/processed", output_dir="data/analyzed", max_docs=50000000, max_workers=5):
     """Шаг 2: Анализ документов с OpenAI (оптимизированный)"""
     if not Path(input_dir).exists():
         logger.warning(f"Директория {input_dir} не существует. Пропускаем анализ.")
@@ -139,8 +139,8 @@ def step3_build_dataset(analyzed_dir="data/analyzed", output_file="data/train_da
 def step4_train_model(train_file="data/train_dataset.jsonl", 
                      test_file="data/train_dataset_test.jsonl",
                      output_dir="models/legal_model",
-                     epochs=15,
-                     batch_size=1):
+                     epochs=25,
+                     batch_size=5):
     """Шаг 4: Обучение модели (оптимизированное)"""
     if not Path(train_file).exists():
         logger.warning(f"Файл {train_file} не существует. Пропускаем обучение.")
