@@ -44,13 +44,20 @@ def process_dataset_for_hf_trainer(dataset_path, tokenizer, max_length=2048):
             text = f"Факты: {facts}\nМотивировка: {reasoning}"
             texts.append(text)
         
+        # Безопасная токенизация с проверкой длины
         tokenized = tokenizer(
             texts,
             truncation=True,
-            padding=True,
+            padding="max_length",
             max_length=max_length,
             return_tensors="pt"
         )
+        
+        # Проверяем что все токены в допустимых пределах
+        if tokenized["input_ids"].max() >= tokenizer.vocab_size:
+            logger.warning(f"Обнаружены токены вне словаря: {tokenized['input_ids'].max()}")
+            # Обрезаем до размера словаря
+            tokenized["input_ids"] = torch.clamp(tokenized["input_ids"], 0, tokenizer.vocab_size - 1)
         
         tokenized["labels"] = tokenized["input_ids"].clone()
         return tokenized
@@ -118,8 +125,10 @@ def train_model(args):
             logger.info(f"GPU {i} память: {gpu_memory:.1f} GB")
             
             # Проверяем достаточность памяти для RTX 30 Series
-            if gpu_memory < 6:
+            if gpu_memory < 8:
                 logger.warning(f"GPU {i} имеет мало памяти ({gpu_memory:.1f} GB). Рекомендуется 8GB+ для стабильной работы")
+            else:
+                logger.info(f"✅ GPU {i} имеет достаточно памяти ({gpu_memory:.1f} GB) для QVikhr-3-4B")
     else:
         logger.warning("CUDA недоступна! Обучение будет происходить на CPU (медленнее)")
         logger.info("Рекомендуется установить PyTorch с поддержкой CUDA для ускорения")

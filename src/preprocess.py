@@ -188,7 +188,7 @@ def convert_pdf_to_text(input_pdf_path: str, output_txt_path: str) -> None:
 
 def process_all_pdfs(input_dir: str, output_dir: str) -> None:
     """
-    Обрабатывает все PDF-файлы в указанной директории.
+    Обрабатывает все PDF-файлы в указанной директории с проверкой уже обработанных.
     
     Args:
         input_dir: Директория с исходными PDF-файлами
@@ -202,14 +202,51 @@ def process_all_pdfs(input_dir: str, output_dir: str) -> None:
     
     logger.info(f"Всего найдено {len(pdf_files)} PDF-файлов для обработки")
     
-    # Обрабатываем каждый PDF-файл
+    # Проверяем уже обработанные файлы
+    processed_files = set()
+    if os.path.exists(output_dir):
+        processed_files = {f for f in os.listdir(output_dir) if f.lower().endswith('.txt')}
+        processed_files = {os.path.splitext(f)[0] for f in processed_files}  # Убираем расширение
+    
+    logger.info(f"📊 Уже обработано: {len(processed_files)} файлов")
+    
+    # Фильтруем файлы для обработки
+    files_to_process = []
+    skipped_files = []
+    
     for pdf_file in pdf_files:
+        pdf_name = os.path.splitext(pdf_file)[0]
+        output_path = os.path.join(output_dir, pdf_name + '.txt')
+        
+        if pdf_name in processed_files or os.path.exists(output_path):
+            skipped_files.append(pdf_file)
+        else:
+            files_to_process.append(pdf_file)
+    
+    logger.info(f"📊 Пропущено (уже обработано): {len(skipped_files)} файлов")
+    logger.info(f"📊 Будет обработано: {len(files_to_process)} файлов")
+    
+    if not files_to_process:
+        logger.info("✅ Все файлы уже обработаны!")
+        return
+    
+    # Обрабатываем только новые файлы
+    processed_count = 0
+    for pdf_file in files_to_process:
         input_path = os.path.join(input_dir, pdf_file)
         output_path = os.path.join(output_dir, os.path.splitext(pdf_file)[0] + '.txt')
         
+        logger.info(f"📄 Обработка: {pdf_file}")
         convert_pdf_to_text(input_path, output_path)
+        
+        if os.path.exists(output_path):
+            processed_count += 1
     
-    logger.info(f"Обработка завершена. Успешно обработано {len(pdf_files)} из {len(pdf_files)} файлов")
+    logger.info(f"✅ Обработка завершена!")
+    logger.info(f"📊 Статистика:")
+    logger.info(f"   ✅ Успешно обработано: {processed_count} новых файлов")
+    logger.info(f"   ⏭️  Пропущено (уже обработано): {len(skipped_files)} файлов")
+    logger.info(f"   📁 Всего найдено: {len(pdf_files)} файлов")
 
 if __name__ == "__main__":
     import argparse

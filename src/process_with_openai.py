@@ -282,7 +282,7 @@ class LegalDocumentProcessor:
 
     def process_directory(self, input_dir: str, output_dir: str) -> None:
         """
-        Обрабатывает все текстовые файлы в директории
+        Обрабатывает все текстовые файлы в директории с проверкой уже обработанных
         
         Args:
             input_dir: Директория с входными файлами
@@ -299,25 +299,54 @@ class LegalDocumentProcessor:
                 logger.warning(f"⚠️  В директории {input_dir} не найдено текстовых файлов")
                 return
             
+            # Проверяем уже обработанные файлы в выходной директории
+            processed_files = set()
+            if os.path.exists(output_dir):
+                processed_files = {f for f in os.listdir(output_dir) if f.lower().endswith('_analyzed.json')}
+                processed_files = {f.replace('_analyzed.json', '') for f in processed_files}
+            
             logger.info(f"📁 Найдено {len(text_files)} текстовых файлов")
+            logger.info(f"📊 Уже обработано: {len(processed_files)} файлов")
+            
+            # Фильтруем файлы для обработки
+            files_to_process = []
+            skipped_files = []
+            
+            for text_file in text_files:
+                file_name = text_file.stem  # Имя файла без расширения
+                output_file = os.path.join(output_dir, f"{file_name}_analyzed.json")
+                
+                if file_name in processed_files or os.path.exists(output_file):
+                    skipped_files.append(text_file)
+                else:
+                    files_to_process.append(text_file)
+            
+            logger.info(f"📊 Пропущено (уже обработано): {len(skipped_files)} файлов")
+            logger.info(f"📊 Будет обработано: {len(files_to_process)} файлов")
             logger.info(f"🎯 Будет обработано максимум {self.max_documents} файлов")
-            logger.info(f"📊 Прогресс: 0/{min(len(text_files), self.max_documents)}")
+            
+            # Ограничиваем количество файлов
+            files_to_process = files_to_process[:self.max_documents]
+            
+            if not files_to_process:
+                logger.info("✅ Все файлы уже обработаны!")
+                return
             
             # Обрабатываем файлы с прогресс-баром
             processed = 0
-            with tqdm(total=min(len(text_files), self.max_documents), 
+            with tqdm(total=len(files_to_process), 
                      desc="📄 Обработка документов", 
                      unit="док") as pbar:
                 
-                for i, text_file in enumerate(text_files):
+                for i, text_file in enumerate(files_to_process):
                     logger.info(f"\n{'='*60}")
-                    logger.info(f"📄 Документ {i+1}/{min(len(text_files), self.max_documents)}: {text_file.name}")
+                    logger.info(f"📄 Документ {i+1}/{len(files_to_process)}: {text_file.name}")
                     logger.info(f"{'='*60}")
                     
                     if self.process_text_file(str(text_file), output_dir):
                         processed += 1
                         pbar.update(1)
-                        logger.info(f"✅ Успешно обработано: {processed}/{min(len(text_files), self.max_documents)}")
+                        logger.info(f"✅ Успешно обработано: {processed}/{len(files_to_process)}")
                     else:
                         logger.warning(f"⚠️  Пропущен документ: {text_file.name}")
                     
@@ -328,7 +357,8 @@ class LegalDocumentProcessor:
             
             logger.info(f"\n🎉 Обработка завершена!")
             logger.info(f"📊 Итоговая статистика:")
-            logger.info(f"   ✅ Успешно обработано: {processed} файлов")
+            logger.info(f"   ✅ Успешно обработано: {processed} новых файлов")
+            logger.info(f"   ⏭️  Пропущено (уже обработано): {len(skipped_files)} файлов")
             logger.info(f"   📁 Всего найдено: {len(text_files)} файлов")
             logger.info(f"   🎯 Лимит: {self.max_documents} файлов")
             

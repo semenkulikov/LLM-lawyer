@@ -137,6 +137,9 @@ python src\test_example.py --model_path models\legal_model --test_file data\trai
 # Мониторинг обучения
 python src\monitor_training.py --log_dir models --port 6006 --open_browser
 
+# Мониторинг прогресса обработки
+python monitor_progress.py
+
 # Инкрементальное дообучение модели
 python src\incremental_train.py --model_path models\legal_model --new_data data\new_data.jsonl --output_dir models\incremental --epochs 3
 

@@ -134,14 +134,14 @@ def step2_analyze_with_openai(input_dir="data/processed", output_dir="data/analy
         return True
     
     cmd = [
-        sys.executable, "src/process_with_openai.py",
+        sys.executable, "src/process_with_openai_async.py",
         "--input-dir", input_dir,
         "--output-dir", output_dir,
         "--max-docs", str(max_docs),
-        "--max-workers", str(max_workers)
+        "--max-concurrent", str(max_workers)
     ]
     
-    return run_command(cmd, "Анализ документов с OpenAI (оптимизированный)")
+    return run_command(cmd, "Асинхронный анализ документов с OpenAI")
 
 def step3_build_dataset(analyzed_dir="data/analyzed", output_file="data/train_dataset.jsonl"):
     """Шаг 3: Создание обучающего датасета"""
