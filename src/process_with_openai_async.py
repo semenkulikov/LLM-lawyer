@@ -366,39 +366,39 @@ class AsyncLegalDocumentProcessor:
             
             logger.info(f"🚀 Начинаем обработку {len(files_to_process)} файлов...")
             
-            # Создаем aiohttp сессию внутри метода
-            connector = aiohttp.TCPConnector(limit=self.max_concurrent * 2)
-            timeout = aiohttp.ClientTimeout(total=120)
-            
             # Создаем семафор для ограничения одновременных запросов
             semaphore = asyncio.Semaphore(self.max_concurrent)
             
-            async def process_with_semaphore(file_path):
-                async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+            # Создаем одну общую сессию для всех задач
+            connector = aiohttp.TCPConnector(limit=self.max_concurrent * 2)
+            timeout = aiohttp.ClientTimeout(total=120)
+            
+            async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+                async def process_with_semaphore(file_path):
                     async with semaphore:
                         return await self.process_text_file_async(session, file_path, output_dir)
-            
-            # Обрабатываем файлы асинхронно
-            tasks = [process_with_semaphore(file_path) for file_path in files_to_process]
-            
-            # Создаем прогресс-бар
-            with tqdm(total=len(tasks), desc="📄 Асинхронная обработка", unit="док") as pbar:
-                completed = 0
-                for coro in asyncio.as_completed(tasks):
-                    result = await coro
-                    completed += 1
-                    pbar.update(1)
-                    
-                    if result:
-                        logger.info(f"✅ Успешно обработано: {completed}/{len(tasks)}")
-                    else:
-                        logger.warning(f"⚠️  Пропущен документ")
-            
-            logger.info(f"\n🎉 Асинхронная обработка завершена!")
-            logger.info(f"📊 Итоговая статистика:")
-            logger.info(f"   ✅ Успешно обработано: {self.processed_count} файлов")
-            logger.info(f"   📁 Всего найдено: {len(text_files)} файлов")
-            logger.info(f"   🎯 Лимит: {self.max_documents} файлов")
+                
+                # Обрабатываем файлы асинхронно
+                tasks = [process_with_semaphore(file_path) for file_path in files_to_process]
+                
+                # Создаем прогресс-бар
+                with tqdm(total=len(tasks), desc="📄 Асинхронная обработка", unit="док") as pbar:
+                    completed = 0
+                    for coro in asyncio.as_completed(tasks):
+                        result = await coro
+                        completed += 1
+                        pbar.update(1)
+                        
+                        if result:
+                            logger.info(f"✅ Успешно обработано: {completed}/{len(tasks)}")
+                        else:
+                            logger.warning(f"⚠️  Пропущен документ")
+                
+                logger.info(f"\n🎉 Асинхронная обработка завершена!")
+                logger.info(f"📊 Итоговая статистика:")
+                logger.info(f"   ✅ Успешно обработано: {self.processed_count} файлов")
+                logger.info(f"   📁 Всего найдено: {len(text_files)} файлов")
+                logger.info(f"   🎯 Лимит: {self.max_documents} файлов")
             
         except Exception as e:
             logger.error(f"❌ Ошибка при асинхронной обработке директории {input_dir}: {e}")
