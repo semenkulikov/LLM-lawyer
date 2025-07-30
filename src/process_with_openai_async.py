@@ -391,10 +391,8 @@ class AsyncLegalDocumentProcessor:
                 proxy_settings = os.getenv('HTTPS_PROXY')
             # Обычные порты VPN прокси
             elif not proxy_settings:
-                # Попробуем стандартные порты VPN
-                for port in [12334, 1080, 8080, 3128, 8888]:
-                    proxy_settings = f"http://127.0.0.1:{port}"
-                    break  # Используем первый доступный
+                # V2Ray обычно использует порт 12334
+                proxy_settings = "http://127.0.0.1:12334"
             
             if proxy_settings:
                 logger.info(f"🔗 Используем прокси: {proxy_settings}")
