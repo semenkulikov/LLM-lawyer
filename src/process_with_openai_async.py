@@ -312,7 +312,7 @@ class AsyncLegalDocumentProcessor:
             logger.error(f"❌ Ошибка при обработке файла {input_file}: {e}")
             return False
 
-    async def process_directory_async(self, session: aiohttp.ClientSession, input_dir: str, output_dir: str) -> None:
+    async def process_directory_async(self, input_dir: str, output_dir: str) -> None:
         """
         Асинхронная обработка всех текстовых файлов в директории с проверкой уже обработанных
         
@@ -366,15 +366,20 @@ class AsyncLegalDocumentProcessor:
             
             logger.info(f"🚀 Начинаем обработку {len(files_to_process)} файлов...")
             
+            # Создаем aiohttp сессию внутри метода
+            connector = aiohttp.TCPConnector(limit=self.max_concurrent * 2)
+            timeout = aiohttp.ClientTimeout(total=120)
+            
             # Создаем семафор для ограничения одновременных запросов
             semaphore = asyncio.Semaphore(self.max_concurrent)
             
-            async def process_with_semaphore(file_path, session):
-                async with semaphore:
-                    return await self.process_text_file_async(session, file_path, output_dir)
+            async def process_with_semaphore(file_path):
+                async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+                    async with semaphore:
+                        return await self.process_text_file_async(session, file_path, output_dir)
             
             # Обрабатываем файлы асинхронно
-            tasks = [process_with_semaphore(file_path, session) for file_path in files_to_process]
+            tasks = [process_with_semaphore(file_path) for file_path in files_to_process]
             
             # Создаем прогресс-бар
             with tqdm(total=len(tasks), desc="📄 Асинхронная обработка", unit="док") as pbar:
@@ -438,12 +443,8 @@ async def main():
     logger.info("🚀 Начинаем асинхронную обработку документов...")
     start_time = time.time()
     
-    # Создаем aiohttp сессию
-    connector = aiohttp.TCPConnector(limit=args.max_concurrent * 2)
-    timeout = aiohttp.ClientTimeout(total=120)
-    
-    async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
-        await processor.process_directory_async(session, args.input_dir, args.output_dir)
+    # Обрабатываем документы
+    await processor.process_directory_async(args.input_dir, args.output_dir)
     
     total_time = time.time() - start_time
     
