@@ -2,7 +2,7 @@
 color a
 chcp 65001 >nul
 echo ========================================
-echo    Быстрый тест системы LLM-lawyer
+echo    Проверка конфигурации .env
 echo ========================================
 echo.
 
@@ -24,26 +24,12 @@ if not defined VIRTUAL_ENV (
 echo Виртуальное окружение активировано.
 echo.
 
-echo Запуск диагностики системы...
+echo Запуск проверки .env файла...
 echo.
 
-REM Проверяем наличие .env файла
-if not exist ".env" (
-    echo ПРЕДУПРЕЖДЕНИЕ: Файл .env не найден!
-    echo Скопируйте env.example в .env и настройте API ключи
-    echo.
-    set /p choice="Продолжить без .env файла? (y/n): "
-    if /i not "%choice%"=="y" (
-        echo Отмена запуска.
-        pause
-        exit /b 1
-    )
-)
-
-REM Запускаем быстрый тест
-python quick_test.py
+REM Запускаем проверку
+python check_env.py
 
 echo.
-echo Диагностика завершена.
-echo Проверьте результаты выше.
+echo Проверка завершена.
 pause 

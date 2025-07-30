@@ -3,9 +3,29 @@
 
 import os
 import sys
+from pathlib import Path
 from openai import OpenAI
 from openai import OpenAIError
 from loguru import logger
+
+# Загружаем переменные окружения из .env файла
+def load_env():
+    """Загрузка переменных окружения из .env файла"""
+    env_file = Path('.env')
+    if env_file.exists():
+        logger.info("📄 Загрузка переменных окружения из .env файла...")
+        with open(env_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    os.environ[key.strip()] = value.strip()
+        logger.success("✅ Переменные окружения загружены")
+    else:
+        logger.warning("⚠️  Файл .env не найден")
+
+# Загружаем переменные окружения при запуске
+load_env()
 
 def test_openai_key():
     """

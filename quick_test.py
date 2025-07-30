@@ -7,6 +7,25 @@ import subprocess
 from pathlib import Path
 from loguru import logger
 
+# Загружаем переменные окружения из .env файла
+def load_env():
+    """Загрузка переменных окружения из .env файла"""
+    env_file = Path('.env')
+    if env_file.exists():
+        logger.info("📄 Загрузка переменных окружения из .env файла...")
+        with open(env_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    os.environ[key.strip()] = value.strip()
+        logger.success("✅ Переменные окружения загружены")
+    else:
+        logger.warning("⚠️  Файл .env не найден")
+
+# Загружаем переменные окружения при запуске
+load_env()
+
 def test_dependencies():
     """Тестирование зависимостей"""
     logger.info("🔍 Проверка зависимостей...")
@@ -37,6 +56,19 @@ def test_openai_key():
     """Тестирование OpenAI API ключа"""
     logger.info("🔑 Проверка OpenAI API ключа...")
     
+    # Сначала проверяем .env файл
+    try:
+        result = subprocess.run([
+            sys.executable, "check_env.py"
+        ], capture_output=True, text=True, encoding='utf-8', errors='replace', check=True)
+        
+        logger.success("✅ .env файл настроен правильно")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"❌ Проблемы с .env файлом: {e.stderr}")
+        logger.info("Запустите check_env.bat для диагностики")
+        return False
+    
+    # Затем тестируем API
     try:
         result = subprocess.run([
             sys.executable, "src/test_openai_key.py"

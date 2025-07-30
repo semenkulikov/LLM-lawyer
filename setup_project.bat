@@ -88,7 +88,12 @@ REM Создаем .env файл если его нет
 if not exist ".env" (
     echo Создание файла конфигурации...
     copy env.example .env
-    echo Файл .env создан. Отредактируйте его для настройки API ключей.
+    echo Файл .env создан. 
+    echo.
+    echo ВАЖНО: Отредактируйте файл .env и добавьте ваш OpenAI API ключ!
+    echo Замените строку: OPENAI_API_KEY=sk-your-openai-api-key-here
+    echo На ваш реальный API ключ.
+    echo.
 )
 
 echo.
