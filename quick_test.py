@@ -18,7 +18,9 @@ def load_env():
                 line = line.strip()
                 if line and not line.startswith('#') and '=' in line:
                     key, value = line.split('=', 1)
-                    os.environ[key.strip()] = value.strip()
+                    # Убираем кавычки из значения
+                    value = value.strip().strip('"').strip("'")
+                    os.environ[key.strip()] = value
         logger.success("✅ Переменные окружения загружены")
     else:
         logger.warning("⚠️  Файл .env не найден")
