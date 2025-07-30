@@ -180,7 +180,7 @@ class AsyncLegalDocumentProcessor:
     }}
 }}"""
 
-    async def analyze_document_async(self, session: aiohttp.ClientSession, text: str, filename: str) -> Optional[Dict[str, Any]]:
+    async def analyze_document_async(self, session: aiohttp.ClientSession, text: str, filename: str, proxy_settings: str = None) -> Optional[Dict[str, Any]]:
         """
         Асинхронный анализ документа с помощью OpenAI API
         
@@ -207,11 +207,20 @@ class AsyncLegalDocumentProcessor:
                 "temperature": 0.1
             }
             
+            # Добавляем прокси в запрос
+            request_kwargs = {
+                "headers": headers,
+                "json": data,
+                "timeout": aiohttp.ClientTimeout(total=120)
+            }
+            
+            # Добавляем прокси если настроен
+            if proxy_settings:
+                request_kwargs["proxy"] = proxy_settings
+            
             async with session.post(
                 "https://api.openai.com/v1/chat/completions",
-                headers=headers,
-                json=data,
-                timeout=aiohttp.ClientTimeout(total=120)
+                **request_kwargs
             ) as response:
                 if response.status == 200:
                     result = await response.json()
@@ -369,14 +378,35 @@ class AsyncLegalDocumentProcessor:
             # Создаем семафор для ограничения одновременных запросов
             semaphore = asyncio.Semaphore(self.max_concurrent)
             
-            # Создаем одну общую сессию для всех задач
+            # Создаем одну общую сессию для всех задач с поддержкой прокси
             connector = aiohttp.TCPConnector(limit=self.max_concurrent * 2)
             timeout = aiohttp.ClientTimeout(total=120)
             
-            async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+            # Настройки прокси (если VPN использует локальный прокси)
+            proxy_settings = None
+            # Попробуем найти прокси в переменных окружения
+            if os.getenv('HTTP_PROXY'):
+                proxy_settings = os.getenv('HTTP_PROXY')
+            elif os.getenv('HTTPS_PROXY'):
+                proxy_settings = os.getenv('HTTPS_PROXY')
+            # Обычные порты VPN прокси
+            elif not proxy_settings:
+                # Попробуем стандартные порты VPN
+                for port in [12334, 1080, 8080, 3128, 8888]:
+                    proxy_settings = f"http://127.0.0.1:{port}"
+                    break  # Используем первый доступный
+            
+            if proxy_settings:
+                logger.info(f"🔗 Используем прокси: {proxy_settings}")
+            
+            async with aiohttp.ClientSession(
+                connector=connector, 
+                timeout=timeout,
+                connector_owner=False
+            ) as session:
                 async def process_with_semaphore(file_path):
                     async with semaphore:
-                        return await self.process_text_file_async(session, file_path, output_dir)
+                        return await self.process_text_file_async(session, file_path, output_dir, proxy_settings)
                 
                 # Обрабатываем файлы асинхронно
                 tasks = [process_with_semaphore(file_path) for file_path in files_to_process]
