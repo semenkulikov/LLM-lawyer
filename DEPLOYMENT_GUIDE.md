@@ -157,11 +157,15 @@ python quick_test.py
 python run_pipeline.py
 
 # Или пошагово:
+
+# 0. Запуск мониторинга
+python monitor_progress.py
+
 # 1. Предобработка
 python src\preprocess.py --input-dir data\raw --output-dir data\processed
 
 # 2. Анализ с OpenAI (если есть API ключ)
-python src\process_with_openai.py --input-dir data\processed --output-dir data\structured
+python src/process_with_openai.py --input-dir data/processed --output-dir data/analyzed --max-docs 3 --max-workers 1
 
 # 3. Создание датасета
 python src\build_dataset.py --input-dir data\structured --output-file data\train_dataset.jsonl
