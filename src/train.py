@@ -53,12 +53,8 @@ def process_dataset_for_hf_trainer(dataset_path, tokenizer, max_length=2048):
             return_tensors="pt"
         )
         
-        # Проверяем что все токены в допустимых пределах
-        if tokenized["input_ids"].max() >= tokenizer.vocab_size:
-            logger.warning(f"Обнаружены токены вне словаря: {tokenized['input_ids'].max()}")
-            # Обрезаем до размера словаря
-            tokenized["input_ids"] = torch.clamp(tokenized["input_ids"], 0, tokenizer.vocab_size - 1)
-        
+        # Убеждаемся, что все токены в допустимых пределах
+        tokenized["input_ids"] = torch.clamp(tokenized["input_ids"], 0, tokenizer.vocab_size - 1)
         tokenized["labels"] = tokenized["input_ids"].clone()
         return tokenized
     
@@ -89,7 +85,6 @@ def load_existing_model(model_name, output_dir, tokenizer):
             model = AutoModelForCausalLM.from_pretrained(
                 output_dir,
                 torch_dtype=torch.float16,
-                device_map="auto",
                 low_cpu_mem_usage=True,
             )
             logger.info("Существующая модель загружена успешно")
@@ -103,7 +98,6 @@ def load_existing_model(model_name, output_dir, tokenizer):
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         torch_dtype=torch.float16,
-        device_map="auto",
         low_cpu_mem_usage=True,
     )
     return model
@@ -139,6 +133,9 @@ def train_model(args):
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     
+    # Проверяем размер словаря
+    logger.info(f"Размер словаря токенизатора: {tokenizer.vocab_size}")
+    
     # Создаем резервную копию предыдущей модели
     if args.resume_training:
         backup_previous_model(args.output_dir)
@@ -146,10 +143,14 @@ def train_model(args):
     # Загружаем модель (существующую или базовую)
     model = load_existing_model(args.model_name, args.output_dir, tokenizer)
     
+    # Перемещаем модель на GPU
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
+    
     # Включаем gradient checkpointing для экономии памяти
     model.gradient_checkpointing_enable()
     
-    logger.info("Модель загружена с автоматическим распределением памяти")
+    logger.info(f"Модель загружена и перемещена на {device}")
     
     # Обрабатываем датасеты
     train_dataset = process_dataset_for_hf_trainer(args.train_file, tokenizer, args.max_length)
