@@ -84,7 +84,6 @@ def load_existing_model(model_name, output_dir, tokenizer):
         try:
             model = AutoModelForCausalLM.from_pretrained(
                 output_dir,
-                torch_dtype=torch.float16,
                 low_cpu_mem_usage=True,
             )
             logger.info("Существующая модель загружена успешно")
@@ -97,7 +96,6 @@ def load_existing_model(model_name, output_dir, tokenizer):
     logger.info(f"Загрузка базовой модели {model_name}...")
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
-        torch_dtype=torch.float16,
         low_cpu_mem_usage=True,
     )
     return model
@@ -147,6 +145,10 @@ def train_model(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     
+    # Проверяем поддержку bf16
+    bf16_available = torch.cuda.is_available() and torch.cuda.is_bf16_supported()
+    logger.info(f"Поддержка bf16: {bf16_available}")
+    
     # Включаем gradient checkpointing для экономии памяти
     model.gradient_checkpointing_enable()
     
@@ -169,8 +171,8 @@ def train_model(args):
         seed=args.seed,
         
         # Mixed precision training
-        fp16=True,
-        bf16=False,
+        fp16=False,  # Отключаем fp16, так как модель уже в fp16
+        bf16=bf16_available,   # Используем bf16 только если поддерживается
         
         # Gradient accumulation для эффективного использования памяти
         gradient_accumulation_steps=args.gradient_accumulation_steps,
