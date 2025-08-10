@@ -172,6 +172,10 @@ python src\build_dataset.py --input-dir data\structured --output-file data\train
 
 # 4. Обучение модели
 python src\train.py --train_file data\train_dataset.jsonl --output_dir models\legal_model --epochs 3 --batch_size 4
+
+# или 
+
+python src\train.py --train_file data\train_dataset.jsonl --test_file data\train_dataset_test.jsonl --output_dir models\legal_model --epochs 15 --batch_size 2 --gradient_accumulation_steps 8 --learning_rate 5e-5 --max_length 2048
 ```
 
 #### 7.2 Тестирование модели

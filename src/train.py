@@ -145,6 +145,11 @@ def train_model(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     
+    # Очищаем CUDA кеш для освобождения памяти
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        logger.info(f"CUDA кеш очищен. Доступная память: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f} GB")
+    
     # Проверяем поддержку bf16
     bf16_available = torch.cuda.is_available() and torch.cuda.is_bf16_supported()
     logger.info(f"Поддержка bf16: {bf16_available}")
@@ -155,19 +160,23 @@ def train_model(args):
     logger.info(f"Модель загружена и перемещена на {device}")
     
     # Обрабатываем датасеты
-    train_dataset = process_dataset_for_hf_trainer(args.train_file, tokenizer, args.max_length)
-    val_dataset = process_dataset_for_hf_trainer(args.test_file, tokenizer, args.max_length)
+    # Уменьшаем max_length для экономии памяти на RTX 3070 Laptop
+    effective_max_length = min(args.max_length, 1024)  # Ограничиваем до 1024 токенов
+    logger.info(f"Используем max_length: {effective_max_length} (ограничено для экономии памяти)")
+    
+    train_dataset = process_dataset_for_hf_trainer(args.train_file, tokenizer, effective_max_length)
+    val_dataset = process_dataset_for_hf_trainer(args.test_file, tokenizer, effective_max_length)
     
     # Оптимизированные настройки для RTX 30 Series ноутбука
     training_args = TrainingArguments(
         output_dir=args.output_dir,
         num_train_epochs=args.epochs,
         per_device_train_batch_size=args.batch_size,
-        per_device_eval_batch_size=args.batch_size,
+        per_device_eval_batch_size=1,  # Уменьшено для экономии памяти
         logging_steps=5,  # Уменьшено для более частого логирования
-        save_steps=50,    # Уменьшено для более частого сохранения
-        eval_steps=25,    # Уменьшено для более частой валидации
-        save_total_limit=5,  # Сохраняем больше чекпоинтов для дообучения
+        save_steps=100,   # Увеличено для экономии ресурсов
+        eval_steps=50,    # Увеличено для экономии ресурсов
+        save_total_limit=3,  # Уменьшено для экономии места
         seed=args.seed,
         
         # Mixed precision training
@@ -182,7 +191,7 @@ def train_model(args):
         
         # Оптимизации памяти для ноутбука
         dataloader_pin_memory=False,
-        remove_unused_columns=False,
+        remove_unused_columns=True,  # Включаем для экономии памяти
         
         # Консервативные параметры обучения
         learning_rate=args.learning_rate,
@@ -205,6 +214,11 @@ def train_model(args):
         # Дополнительные оптимизации для ноутбука
         dataloader_num_workers=0,  # Отключаем multiprocessing для стабильности
         group_by_length=True,      # Группировка по длине для эффективности
+        
+        # Дополнительные оптимизации памяти
+        max_grad_norm=1.0,         # Ограничиваем градиенты
+        optim="adamw_torch",       # Используем оптимизатор PyTorch
+        lr_scheduler_type="cosine", # Косинусный scheduler
     )
     
     # Создаем тренер
@@ -248,11 +262,11 @@ def main():
     parser.add_argument('--test_file', type=str, required=True, help='Путь к тестовому файлу')
     parser.add_argument('--output_dir', type=str, required=True, help='Директория для сохранения')
     parser.add_argument('--model_name', type=str, default='Vikhrmodels/QVikhr-3-4B-Instruction', help='QVikhr-3-4B модель')
-    parser.add_argument('--max_length', type=int, default=2048, help='Максимальная длина последовательности')
-    parser.add_argument('--epochs', type=int, default=50, help='Количество эпох (оптимизировано для больших датасетов)')
-    parser.add_argument('--batch_size', type=int, default=8, help='Размер батча (оптимизировано для больших датасетов)')
-    parser.add_argument('--gradient_accumulation_steps', type=int, default=4, help='Шаги накопления градиента (оптимизировано для больших датасетов)')
-    parser.add_argument('--learning_rate', type=float, default=5e-5, help='Скорость обучения (оптимизировано для больших датасетов)')
+    parser.add_argument('--max_length', type=int, default=1024, help='Максимальная длина последовательности (ограничено для RTX 3070)')
+    parser.add_argument('--epochs', type=int, default=15, help='Количество эпох (оптимизировано для RTX 3070)')
+    parser.add_argument('--batch_size', type=int, default=1, help='Размер батча (оптимизировано для RTX 3070)')
+    parser.add_argument('--gradient_accumulation_steps', type=int, default=16, help='Шаги накопления градиента (оптимизировано для RTX 3070)')
+    parser.add_argument('--learning_rate', type=float, default=5e-5, help='Скорость обучения (оптимизировано для RTX 3070)')
     parser.add_argument('--weight_decay', type=float, default=0.01, help='Регуляризация весов')
     parser.add_argument('--warmup_steps', type=int, default=50, help='Шаги разогрева (уменьшено для дообучения)')
     parser.add_argument('--seed', type=int, default=42, help='Seed')
