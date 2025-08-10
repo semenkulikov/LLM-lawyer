@@ -12,6 +12,10 @@ sentencepiece>=0.1.99
 tokenizers>=0.15.0
 accelerate>=0.24.0
 
+# Квантование для экономии памяти
+bitsandbytes>=0.41.0
+peft>=0.6.0
+
 # Мониторинг и логирование
 wandb>=0.16.0
 tensorboard>=2.14.0

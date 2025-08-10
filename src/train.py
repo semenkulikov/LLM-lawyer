@@ -85,18 +85,22 @@ def load_existing_model(model_name, output_dir, tokenizer):
             model = AutoModelForCausalLM.from_pretrained(
                 output_dir,
                 low_cpu_mem_usage=True,
+                load_in_8bit=True,  # 8-битное квантование для экономии памяти
+                device_map="auto",  # Автоматическое распределение на CPU/GPU
             )
-            logger.info("Существующая модель загружена успешно")
+            logger.info("Существующая модель загружена успешно с 8-битным квантованием")
             return model
         except Exception as e:
             logger.warning(f"Не удалось загрузить существующую модель: {e}")
             logger.info("Загружаем базовую модель для обучения с нуля")
     
     # Загружаем базовую модель
-    logger.info(f"Загрузка базовой модели {model_name}...")
+    logger.info(f"Загрузка базовой модели {model_name} с 8-битным квантованием...")
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         low_cpu_mem_usage=True,
+        load_in_8bit=True,  # 8-битное квантование для экономии памяти
+        device_map="auto",  # Автоматическое распределение на CPU/GPU
     )
     return model
 
@@ -141,10 +145,6 @@ def train_model(args):
     # Загружаем модель (существующую или базовую)
     model = load_existing_model(args.model_name, args.output_dir, tokenizer)
     
-    # Перемещаем модель на GPU
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = model.to(device)
-    
     # Очищаем CUDA кеш для освобождения памяти
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
@@ -157,11 +157,11 @@ def train_model(args):
     # Включаем gradient checkpointing для экономии памяти
     model.gradient_checkpointing_enable()
     
-    logger.info(f"Модель загружена и перемещена на {device}")
+    logger.info("Модель загружена с 8-битным квантованием и автоматическим распределением")
     
     # Обрабатываем датасеты
     # Уменьшаем max_length для экономии памяти на RTX 3070 Laptop
-    effective_max_length = min(args.max_length, 1024)  # Ограничиваем до 1024 токенов
+    effective_max_length = min(args.max_length, 512)  # Ограничиваем до 512 токенов
     logger.info(f"Используем max_length: {effective_max_length} (ограничено для экономии памяти)")
     
     train_dataset = process_dataset_for_hf_trainer(args.train_file, tokenizer, effective_max_length)
@@ -262,11 +262,11 @@ def main():
     parser.add_argument('--test_file', type=str, required=True, help='Путь к тестовому файлу')
     parser.add_argument('--output_dir', type=str, required=True, help='Директория для сохранения')
     parser.add_argument('--model_name', type=str, default='Vikhrmodels/QVikhr-3-4B-Instruction', help='QVikhr-3-4B модель')
-    parser.add_argument('--max_length', type=int, default=1024, help='Максимальная длина последовательности (ограничено для RTX 3070)')
-    parser.add_argument('--epochs', type=int, default=15, help='Количество эпох (оптимизировано для RTX 3070)')
+    parser.add_argument('--max_length', type=int, default=512, help='Максимальная длина последовательности (ограничено для RTX 3070)')
+    parser.add_argument('--epochs', type=int, default=10, help='Количество эпох (оптимизировано для RTX 3070)')
     parser.add_argument('--batch_size', type=int, default=1, help='Размер батча (оптимизировано для RTX 3070)')
-    parser.add_argument('--gradient_accumulation_steps', type=int, default=16, help='Шаги накопления градиента (оптимизировано для RTX 3070)')
-    parser.add_argument('--learning_rate', type=float, default=5e-5, help='Скорость обучения (оптимизировано для RTX 3070)')
+    parser.add_argument('--gradient_accumulation_steps', type=int, default=32, help='Шаги накопления градиента (оптимизировано для RTX 3070)')
+    parser.add_argument('--learning_rate', type=float, default=3e-5, help='Скорость обучения (оптимизировано для RTX 3070)')
     parser.add_argument('--weight_decay', type=float, default=0.01, help='Регуляризация весов')
     parser.add_argument('--warmup_steps', type=int, default=50, help='Шаги разогрева (уменьшено для дообучения)')
     parser.add_argument('--seed', type=int, default=42, help='Seed')
