@@ -84,23 +84,21 @@ def load_existing_model(model_name, output_dir, tokenizer):
         try:
             model = AutoModelForCausalLM.from_pretrained(
                 output_dir,
+                torch_dtype=torch.float16,  # Используем fp16 для экономии памяти
                 low_cpu_mem_usage=True,
-                load_in_8bit=True,  # 8-битное квантование для экономии памяти
-                device_map="auto",  # Автоматическое распределение на CPU/GPU
             )
-            logger.info("Существующая модель загружена успешно с 8-битным квантованием")
+            logger.info("Существующая модель загружена успешно")
             return model
         except Exception as e:
             logger.warning(f"Не удалось загрузить существующую модель: {e}")
             logger.info("Загружаем базовую модель для обучения с нуля")
     
     # Загружаем базовую модель
-    logger.info(f"Загрузка базовой модели {model_name} с 8-битным квантованием...")
+    logger.info(f"Загрузка базовой модели {model_name}...")
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
+        torch_dtype=torch.float16,  # Используем fp16 для экономии памяти
         low_cpu_mem_usage=True,
-        load_in_8bit=True,  # 8-битное квантование для экономии памяти
-        device_map="auto",  # Автоматическое распределение на CPU/GPU
     )
     return model
 
@@ -145,6 +143,10 @@ def train_model(args):
     # Загружаем модель (существующую или базовую)
     model = load_existing_model(args.model_name, args.output_dir, tokenizer)
     
+    # Перемещаем модель на GPU
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
+    
     # Очищаем CUDA кеш для освобождения памяти
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
@@ -157,12 +159,12 @@ def train_model(args):
     # Включаем gradient checkpointing для экономии памяти
     model.gradient_checkpointing_enable()
     
-    logger.info("Модель загружена с 8-битным квантованием и автоматическим распределением")
+    logger.info(f"Модель загружена и перемещена на {device}")
     
     # Обрабатываем датасеты
-    # Уменьшаем max_length для экономии памяти на RTX 3070 Laptop
-    effective_max_length = min(args.max_length, 512)  # Ограничиваем до 512 токенов
-    logger.info(f"Используем max_length: {effective_max_length} (ограничено для экономии памяти)")
+    # Используем полную длину последовательности для максимальной производительности
+    effective_max_length = args.max_length
+    logger.info(f"Используем max_length: {effective_max_length} для максимальной производительности")
     
     train_dataset = process_dataset_for_hf_trainer(args.train_file, tokenizer, effective_max_length)
     val_dataset = process_dataset_for_hf_trainer(args.test_file, tokenizer, effective_max_length)
@@ -172,16 +174,16 @@ def train_model(args):
         output_dir=args.output_dir,
         num_train_epochs=args.epochs,
         per_device_train_batch_size=args.batch_size,
-        per_device_eval_batch_size=1,  # Уменьшено для экономии памяти
-        logging_steps=5,  # Уменьшено для более частого логирования
-        save_steps=100,   # Увеличено для экономии ресурсов
-        eval_steps=50,    # Увеличено для экономии ресурсов
-        save_total_limit=3,  # Уменьшено для экономии места
+        per_device_eval_batch_size=args.batch_size,  # Возвращаем нормальный размер
+        logging_steps=10,  # Оптимизировано для мониторинга
+        save_steps=200,    # Оптимизировано для экономии ресурсов
+        eval_steps=100,    # Оптимизировано для экономии ресурсов
+        save_total_limit=3,  # Сохраняем 3 лучших чекпоинта
         seed=args.seed,
         
-        # Mixed precision training
-        fp16=False,  # Отключаем fp16, так как модель уже в fp16
-        bf16=bf16_available,   # Используем bf16 только если поддерживается
+        # Mixed precision training - используем fp16 для максимальной производительности
+        fp16=True,  # Включаем fp16 для ускорения
+        bf16=False, # Отключаем bf16
         
         # Gradient accumulation для эффективного использования памяти
         gradient_accumulation_steps=args.gradient_accumulation_steps,
@@ -190,7 +192,7 @@ def train_model(args):
         gradient_checkpointing=True,
         
         # Оптимизации памяти для ноутбука
-        dataloader_pin_memory=False,
+        dataloader_pin_memory=True,  # Включаем для ускорения
         remove_unused_columns=True,  # Включаем для экономии памяти
         
         # Консервативные параметры обучения
@@ -212,13 +214,17 @@ def train_model(args):
         greater_is_better=False,
         
         # Дополнительные оптимизации для ноутбука
-        dataloader_num_workers=0,  # Отключаем multiprocessing для стабильности
+        dataloader_num_workers=2,  # Включаем multiprocessing для ускорения
         group_by_length=True,      # Группировка по длине для эффективности
         
         # Дополнительные оптимизации памяти
         max_grad_norm=1.0,         # Ограничиваем градиенты
         optim="adamw_torch",       # Используем оптимизатор PyTorch
         lr_scheduler_type="cosine", # Косинусный scheduler
+        
+        # Оптимизации для максимальной загрузки GPU
+        dataloader_prefetch_factor=2,  # Предзагрузка данных
+        ddp_find_unused_parameters=False,  # Отключаем для ускорения
     )
     
     # Создаем тренер
@@ -262,11 +268,11 @@ def main():
     parser.add_argument('--test_file', type=str, required=True, help='Путь к тестовому файлу')
     parser.add_argument('--output_dir', type=str, required=True, help='Директория для сохранения')
     parser.add_argument('--model_name', type=str, default='Vikhrmodels/QVikhr-3-4B-Instruction', help='QVikhr-3-4B модель')
-    parser.add_argument('--max_length', type=int, default=512, help='Максимальная длина последовательности (ограничено для RTX 3070)')
-    parser.add_argument('--epochs', type=int, default=10, help='Количество эпох (оптимизировано для RTX 3070)')
-    parser.add_argument('--batch_size', type=int, default=1, help='Размер батча (оптимизировано для RTX 3070)')
-    parser.add_argument('--gradient_accumulation_steps', type=int, default=32, help='Шаги накопления градиента (оптимизировано для RTX 3070)')
-    parser.add_argument('--learning_rate', type=float, default=3e-5, help='Скорость обучения (оптимизировано для RTX 3070)')
+    parser.add_argument('--max_length', type=int, default=1024, help='Максимальная длина последовательности (оптимизировано для RTX 3070)')
+    parser.add_argument('--epochs', type=int, default=15, help='Количество эпох (оптимизировано для RTX 3070)')
+    parser.add_argument('--batch_size', type=int, default=2, help='Размер батча (оптимизировано для RTX 3070)')
+    parser.add_argument('--gradient_accumulation_steps', type=int, default=8, help='Шаги накопления градиента (оптимизировано для RTX 3070)')
+    parser.add_argument('--learning_rate', type=float, default=5e-5, help='Скорость обучения (оптимизировано для RTX 3070)')
     parser.add_argument('--weight_decay', type=float, default=0.01, help='Регуляризация весов')
     parser.add_argument('--warmup_steps', type=int, default=50, help='Шаги разогрева (уменьшено для дообучения)')
     parser.add_argument('--seed', type=int, default=42, help='Seed')
