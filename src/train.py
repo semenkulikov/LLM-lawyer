@@ -228,7 +228,8 @@ def train_model(args):
 
     # Обучаем
     logger.info("Начало обучения...")
-    trainer.train()
+    trainer.train(resume_from_checkpoint=args.resume_from_checkpoint if hasattr(args, "resume_from_checkpoint") else None)
+
 
     # Сохраняем модель и токенизатор
     logger.info(f"Сохранение модели в {args.output_dir}")
@@ -266,6 +267,8 @@ def main():
     parser.add_argument('--warmup_steps', type=int, default=50, help='Шаги разогрева')
     parser.add_argument('--seed', type=int, default=42, help='Seed')
     parser.add_argument('--resume_training', action='store_true', help='Дообучение существующей модели')
+    parser.add_argument('--resume_from_checkpoint', type=str, default=None, help='Путь к чекпоинту для возобновления')
+
 
     args = parser.parse_args()
     os.makedirs(args.output_dir, exist_ok=True)
