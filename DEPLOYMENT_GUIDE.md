@@ -182,22 +182,7 @@ python src\train.py --train_file data\train_dataset.jsonl --test_file data\train
 python src/train.py --train_file data/train_dataset.jsonl --test_file data/train_dataset_test.jsonl --output_dir models/legal_model_smallctx --epochs 3 --batch_size 1 --gradient_accumulation_steps 8 --learning_rate 2e-5 --max_length 256 --warmup_steps 500 --resume_from_checkpoint models/legal_model_smallctx/checkpoint-3400
 
 # Короткий тест производительности
-python src\train.py ^
-  --train_file data\train_dataset.jsonl ^
-  --test_file data\train_dataset_test.jsonl ^
-  --output_dir models\legal_model_smallctx ^
-  --epochs 3 ^
-  --batch_size 1 ^
-  --gradient_accumulation_steps 8 ^
-  --learning_rate 2e-5 ^
-  --max_length 256 ^
-  --warmup_steps 500 ^
-  --resume_training ^
-  --resume_from_checkpoint models\legal_model_smallctx\checkpoint-3400 ^
-  --num_workers 4 ^
-  --prefetch_factor 4 ^
-  --log_devices ^
-  --max_steps 100
+python src\train.py --train_file data\train_dataset.jsonl --test_file data\train_dataset_test.jsonl --output_dir models\legal_model_smallctx --epochs 3 --batch_size 1 --gradient_accumulation_steps 8 --learning_rate 2e-5 --max_length 256 --warmup_steps 500 --resume_training --resume_from_checkpoint models\legal_model_smallctx\checkpoint-3400 --num_workers 4 --prefetch_factor 4 --log_devices --max_steps 100
 
 
 # Параллельно мониторинг 
