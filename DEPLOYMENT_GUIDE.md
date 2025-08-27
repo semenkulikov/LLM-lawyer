@@ -189,6 +189,9 @@ python src\train.py --train_file data\train_dataset.jsonl --test_file data\train
 
 nvidia-smi --query-gpu=timestamp,utilization.gpu,utilization.memory,memory.used --format=csv -l 1
 
+nvidia-smi dmon -s pucm -d 1
+nvidia-smi dmon -s pucm -d 1 | gnuplot -p -e "plot '<cat' using 5 with lines"
+
 
 # Полная нагрузка
 
