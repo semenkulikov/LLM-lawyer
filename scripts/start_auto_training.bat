@@ -6,12 +6,16 @@ echo    Автоматическое дообучение модели
 echo ========================================
 echo.
 
-REM Переходим в папку проекта
-cd /d "%~dp0"
+REM Получаем путь к директории скрипта
+set "SCRIPT_DIR=%~dp0"
+set "PROJECT_DIR=%SCRIPT_DIR%.."
+
+REM Переходим в корневую директорию проекта
+cd /d "%PROJECT_DIR%"
 
 REM Активируем виртуальное окружение
 echo Активация виртуального окружения...
-call .venv\Scripts\activate
+call ".venv\Scripts\activate.bat"
 
 REM Проверяем, что окружение активировано
 if not defined VIRTUAL_ENV (
@@ -43,7 +47,7 @@ echo Для остановки нажмите Ctrl+C
 echo.
 
 REM Запускаем автоматическое дообучение
-python src\auto_incremental.py --watch
+python "src\auto_incremental.py" --watch
 
 echo.
 echo Мониторинг остановлен.

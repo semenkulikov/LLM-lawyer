@@ -6,13 +6,20 @@ echo   Юридический ассистент - GUI запуск
 echo ========================================
 echo.
 
+REM Получаем путь к директории скрипта
+set "SCRIPT_DIR=%~dp0"
+set "PROJECT_DIR=%SCRIPT_DIR%.."
+
+REM Переходим в корневую директорию проекта
+cd /d "%PROJECT_DIR%"
+
 REM Активация виртуального окружения
 if exist "venv\Scripts\activate.bat" (
     echo Активация виртуального окружения...
-    call venv\Scripts\activate.bat
+    call "venv\Scripts\activate.bat"
 ) else if exist ".venv\Scripts\activate.bat" (
     echo Активация виртуального окружения...
-    call .venv\Scripts\activate.bat
+    call ".venv\Scripts\activate.bat"
 ) else (
     echo Виртуальное окружение не найдено!
     echo Убедитесь, что оно создано и активировано.
@@ -52,7 +59,7 @@ echo Для остановки закройте окно и нажмите Ctrl+
 echo.
 
 REM Запускаем унифицированный GUI
-python gui\legal_assistant_gui.py
+python "gui\legal_assistant_gui.py"
 
 echo.
 echo Графический интерфейс остановлен.
