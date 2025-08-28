@@ -105,14 +105,14 @@ class LegalAssistantGUI(QMainWindow):
         
         # Переменные для адаптивного масштабирования
         self.base_font_sizes = {
-            'title': 32,
-            'subtitle': 18,
-            'status': 16,
-            'settings': 18,
-            'settings_label': 14,
-            'input': 14,
-            'button': 16,
-            'progress': 14
+            'title': 24,
+            'subtitle': 16,
+            'status': 14,
+            'settings': 16,
+            'settings_label': 12,
+            'input': 12,
+            'button': 14,
+            'progress': 12
         }
         self.current_scale_factor = 1.0
         
@@ -135,20 +135,21 @@ class LegalAssistantGUI(QMainWindow):
         screen_width = screen_geometry.width()
         screen_height = screen_geometry.height()
         
-        # Вычисляем оптимальный размер окна (80% от размера экрана)
-        window_width = int(screen_width * 0.8)
-        window_height = int(screen_height * 0.8)
+        # Вычисляем оптимальный размер окна (60% от размера экрана)
+        window_width = int(screen_width * 0.6)
+        window_height = int(screen_height * 0.6)
         
-        # Ограничиваем минимальный размер
-        window_width = max(1400, window_width)
-        window_height = max(900, window_height)
+        # Ограничиваем размеры
+        window_width = max(1000, min(window_width, 1400))
+        window_height = max(700, min(window_height, 900))
         
         # Центрируем окно
         x = (screen_width - window_width) // 2
         y = (screen_height - window_height) // 2
         
         self.setGeometry(x, y, window_width, window_height)
-        self.setMinimumSize(1400, 900)
+        self.setMinimumSize(1000, 700)
+        self.setMaximumSize(1400, 900)
         
         # Инициализируем масштаб на основе текущего размера окна
         self.update_scale_factor()
@@ -159,8 +160,8 @@ class LegalAssistantGUI(QMainWindow):
         
         # Главный layout
         main_layout = QVBoxLayout(central_widget)
-        main_layout.setSpacing(20)
-        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setSpacing(10)
+        main_layout.setContentsMargins(10, 10, 10, 10)
         
         # Заголовок
         self.create_header(main_layout)
@@ -184,7 +185,7 @@ class LegalAssistantGUI(QMainWindow):
         """Создание заголовка"""
         header_frame = QFrame()
         header_frame.setObjectName("headerFrame")
-        header_frame.setMinimumHeight(120)
+        header_frame.setMinimumHeight(80)
         
         header_layout = QVBoxLayout(header_frame)
         
@@ -338,7 +339,7 @@ class LegalAssistantGUI(QMainWindow):
         
         splitter.addWidget(input_group)
         splitter.addWidget(output_tabs)
-        splitter.setSizes([500, 900])
+        splitter.setSizes([400, 600])
         
         parent_layout.addWidget(splitter, 1)
     
@@ -697,9 +698,9 @@ class LegalAssistantGUI(QMainWindow):
         current_width = self.width()
         current_height = self.height()
         
-        # Базовый размер окна (1800x1100)
-        base_width = 1800
-        base_height = 1100
+        # Базовый размер окна (1200x800)
+        base_width = 1200
+        base_height = 800
         
         # Вычисляем масштаб по ширине и высоте
         scale_x = current_width / base_width
