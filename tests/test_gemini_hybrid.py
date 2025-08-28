@@ -3,10 +3,10 @@
 
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from inference import load_model, generate
-from gemini_hybrid_processor import create_gemini_hybrid_processor
+from hybrid_processor import create_hybrid_processor
 from loguru import logger
 
 def test_gemini_hybrid_approach():
@@ -52,7 +52,7 @@ def test_gemini_hybrid_approach():
         # Шаг 3: Инициализация Gemini процессора
         print("\n🔄 Инициализация Gemini процессора...")
         try:
-            gemini_processor = create_gemini_hybrid_processor()
+            gemini_processor = create_hybrid_processor(provider="gemini")
             print("✅ Gemini процессор инициализирован")
         except Exception as e:
             print(f"❌ Ошибка инициализации Gemini процессора: {e}")
@@ -65,7 +65,7 @@ def test_gemini_hybrid_approach():
         for mode in modes:
             print(f"\n🔄 Тестирование режима: {mode}")
             try:
-                gemini_response = gemini_processor.process_with_gemini(
+                gemini_response = gemini_processor.process_with_external_llm(
                     local_response=local_response,
                     original_query=test_facts,
                     mode=mode
@@ -91,10 +91,10 @@ def test_gemini_connection():
     print("=" * 50)
     
     try:
-        gemini_processor = create_gemini_hybrid_processor()
+        gemini_processor = create_hybrid_processor(provider="gemini")
         
         # Простой тест
-        test_response = gemini_processor.process_with_gemini(
+        test_response = gemini_processor.process_with_external_llm(
             local_response="Тестовый ответ локальной модели QVikhr.",
             original_query="Тестовый запрос",
             mode="polish"
