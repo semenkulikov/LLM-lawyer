@@ -11,7 +11,11 @@ output.txt
 demo_result.txt
 results/
 miniconda3/
+# Датасеты (содержат конфиденциальные данные)
 datasets/
+datasets/hybrid_generated/
+datasets/*.jsonl
+datasets/*.json
 
 # Distribution / packaging
 .Python
