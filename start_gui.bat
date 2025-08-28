@@ -37,14 +37,27 @@ if not exist "models\legal_model" (
     )
 )
 
-echo Запуск графического интерфейса...
+REM Проверяем наличие Gemini GUI
+if exist "gui\gemini_hybrid_app.py" (
+    echo Найдена гибридная система с Gemini Ultra
+    echo.
+    set /p choice="Запустить гибридный GUI с Gemini? (y/n): "
+    if /i "%choice%"=="y" (
+        echo Запуск гибридного GUI с Gemini Ultra...
+        python gui\gemini_hybrid_app.py
+        goto :end
+    )
+)
+
+echo Запуск обычного графического интерфейса...
 echo Откроется окно с интерфейсом
 echo Для остановки закройте окно браузера и нажмите Ctrl+C в этом окне
 echo.
 
-REM Запускаем GUI
+REM Запускаем обычный GUI
 python gui\app.py
 
+:end
 echo.
 echo Графический интерфейс остановлен.
 pause 

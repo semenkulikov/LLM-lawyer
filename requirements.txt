@@ -37,3 +37,6 @@ watchdog>=3.0.0
 
 # Асинхронная обработка
 aiohttp>=3.8.0
+
+# Gemini AI
+google-genai>=0.3.0
