@@ -91,10 +91,9 @@ class HybridProcessor:
     def _init_openai_client(self):
         """Инициализация клиента OpenAI"""
         try:
-            import openai
+            from openai import OpenAI
             
-            openai.api_key = self.api_key
-            self.client = openai
+            self.client = OpenAI(api_key=self.api_key)
             
             logger.info(f"OpenAI клиент инициализирован с моделью: {self.model}")
             
@@ -280,7 +279,7 @@ class HybridProcessor:
     def _call_openai_api(self, prompt: str) -> str:
         """Вызов OpenAI API"""
         try:
-            response = self.client.ChatCompletion.create(
+            response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": "Ты - опытный юрист-эксперт с глубокими знаниями российского законодательства и судебной практики."},

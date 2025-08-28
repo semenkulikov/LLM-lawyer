@@ -156,6 +156,13 @@ python src\model_manager.py cleanup --keep 5
 
 # Запуск GUI
 python gui\app.py
+start_gui.bat
+```
+
+# Тестирование подключения к OpenAI и Gemini 
+```
+python test_quick_connection.py
+python test_hybrid_universal.py
 ```
 
 #### Быстрый тест системы:
