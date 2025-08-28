@@ -23,6 +23,7 @@ loguru>=0.7.0
 
 # GUI и визуализация
 pillow>=9.0.0
+PyQt5>=5.15.0
 
 # Дополнительные утилиты
 scikit-learn>=1.3.0
@@ -40,3 +41,6 @@ aiohttp>=3.8.0
 
 # Gemini AI
 google-genai
+
+# Markdown поддержка
+markdown>=3.4.0
