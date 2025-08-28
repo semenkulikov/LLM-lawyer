@@ -98,16 +98,54 @@ class LegalAssistantGUI(QMainWindow):
         self.selected_provider = "openai"
         self.selected_mode = "polish"
         
+        # Переменные для адаптивного масштабирования
+        self.base_font_sizes = {
+            'title': 32,
+            'subtitle': 18,
+            'status': 16,
+            'settings': 18,
+            'settings_label': 14,
+            'input': 14,
+            'button': 16,
+            'progress': 14
+        }
+        self.current_scale_factor = 1.0
+        
         self.setup_ui()
         self.setup_styles()
         self.load_model_async()
         self.init_hybrid_processor()
+        
+        # Подключаем обработчик изменения размера окна
+        self.resizeEvent = self.on_resize
     
     def setup_ui(self):
         """Настройка интерфейса"""
         self.setWindowTitle("Юридический ассистент - Универсальная гибридная система")
-        self.setGeometry(100, 100, 1800, 1100)
+        
+        # Адаптивный размер окна в зависимости от экрана
+        screen = QApplication.primaryScreen()
+        screen_geometry = screen.geometry()
+        screen_width = screen_geometry.width()
+        screen_height = screen_geometry.height()
+        
+        # Вычисляем оптимальный размер окна (80% от размера экрана)
+        window_width = int(screen_width * 0.8)
+        window_height = int(screen_height * 0.8)
+        
+        # Ограничиваем минимальный размер
+        window_width = max(1400, window_width)
+        window_height = max(900, window_height)
+        
+        # Центрируем окно
+        x = (screen_width - window_width) // 2
+        y = (screen_height - window_height) // 2
+        
+        self.setGeometry(x, y, window_width, window_height)
         self.setMinimumSize(1400, 900)
+        
+        # Инициализируем масштаб на основе текущего размера окна
+        self.update_scale_factor()
         
         # Центральный виджет
         central_widget = QWidget()
@@ -340,113 +378,126 @@ class LegalAssistantGUI(QMainWindow):
         parent_layout.addWidget(progress_frame)
     
     def setup_styles(self):
-        """Настройка стилей"""
-        self.setStyleSheet("""
-            QMainWindow {
+        """Настройка стилей с адаптивным масштабированием"""
+        self.update_styles_with_scale()
+    
+    def update_styles_with_scale(self):
+        """Обновление стилей с учетом масштабирования"""
+        title_size = int(self.base_font_sizes['title'] * self.current_scale_factor)
+        subtitle_size = int(self.base_font_sizes['subtitle'] * self.current_scale_factor)
+        status_size = int(self.base_font_sizes['status'] * self.current_scale_factor)
+        settings_size = int(self.base_font_sizes['settings'] * self.current_scale_factor)
+        settings_label_size = int(self.base_font_sizes['settings_label'] * self.current_scale_factor)
+        input_size = int(self.base_font_sizes['input'] * self.current_scale_factor)
+        button_size = int(self.base_font_sizes['button'] * self.current_scale_factor)
+        progress_size = int(self.base_font_sizes['progress'] * self.current_scale_factor)
+        
+        self.setStyleSheet(f"""
+            QMainWindow {{
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
                     stop:0 #f8f9fa, stop:1 #e9ecef);
                 font-family: 'Segoe UI', Arial, sans-serif;
-            }
+            }}
             
-            #headerFrame {
+            #headerFrame {{
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                     stop:0 #2c3e50, stop:1 #34495e);
                 border-radius: 15px;
                 margin: 10px;
-            }
+            }}
             
-            #titleLabel {
+            #titleLabel {{
                 color: white;
-                font-size: 32px;
+                font-size: {title_size}px;
                 font-weight: bold;
                 margin: 10px;
                 font-family: 'Segoe UI', Arial, sans-serif;
-            }
+            }}
             
-            #subtitleLabel {
+            #subtitleLabel {{
                 color: #bdc3c7;
-                font-size: 18px;
+                font-size: {subtitle_size}px;
                 margin: 5px;
                 font-family: 'Segoe UI', Arial, sans-serif;
-            }
+            }}
             
-            #statusFrame {
+            #statusFrame {{
                 background: white;
                 border: 2px solid #e0e0e0;
                 border-radius: 10px;
                 padding: 15px;
-            }
+            }}
             
-            #statusLabel {
-                font-size: 16px;
+            #statusLabel {{
+                font-size: {status_size}px;
                 font-weight: bold;
                 color: #2c3e50;
                 font-family: 'Segoe UI', Arial, sans-serif;
-            }
+            }}
             
-            #settingsGroup {
+            #settingsGroup {{
                 background: white;
                 border: 2px solid #3498db;
                 border-radius: 10px;
                 font-weight: bold;
                 padding: 20px;
-            }
+            }}
             
-            #settingsGroup::title {
+            #settingsGroup::title {{
                 color: #3498db;
-                font-size: 18px;
+                font-size: {settings_size}px;
                 font-weight: bold;
                 font-family: 'Segoe UI', Arial, sans-serif;
-            }
+            }}
             
-            #settingsLabel {
-                font-size: 14px;
+            #settingsLabel {{
+                font-size: {settings_label_size}px;
                 font-weight: bold;
                 color: #2c3e50;
                 font-family: 'Segoe UI', Arial, sans-serif;
-            }
+            }}
             
-            #inputGroup, #outputTabs {
+            #inputGroup, #outputTabs {{
                 background: white;
                 border: 2px solid #e0e0e0;
                 border-radius: 10px;
                 padding: 20px;
-            }
+            }}
             
-            #inputGroup::title, #outputTabs::title {
+            #inputGroup::title, #outputTabs::title {{
                 color: #2c3e50;
-                font-size: 18px;
+                font-size: {settings_size}px;
                 font-weight: bold;
                 font-family: 'Segoe UI', Arial, sans-serif;
-            }
+            }}
             
-            #inputTextEdit, #outputTextEdit {
+            #inputTextEdit, #outputTextEdit {{
                 border: 2px solid #e0e0e0;
                 border-radius: 8px;
                 padding: 15px;
-                font-size: 14px;
+                font-size: {input_size}px;
                 background: #fafafa;
                 font-family: 'Segoe UI', Arial, sans-serif;
                 line-height: 1.6;
-            }
+            }}
             
-            #inputTextEdit:focus, #outputTextEdit:focus {
+            #inputTextEdit:focus, #outputTextEdit:focus {{
                 border-color: #3498db;
                 background: white;
-            }
+            }}
             
-            #primaryButton {
+            #primaryButton {{
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                     stop:0 #27ae60, stop:1 #2ecc71);
                 color: white;
                 border: none;
                 border-radius: 8px;
                 padding: 15px 30px;
-                font-size: 16px;
+                font-size: {button_size}px;
                 font-weight: bold;
                 min-width: 200px;
                 font-family: 'Segoe UI', Arial, sans-serif;
-            }
+            }}
             
             #primaryButton:hover {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
@@ -465,7 +516,7 @@ class LegalAssistantGUI(QMainWindow):
                 border: none;
                 border-radius: 6px;
                 padding: 12px 24px;
-                font-size: 14px;
+                font-size: {settings_label_size}px;
                 font-weight: bold;
                 font-family: 'Segoe UI', Arial, sans-serif;
             }
@@ -482,7 +533,7 @@ class LegalAssistantGUI(QMainWindow):
                 border: none;
                 border-radius: 6px;
                 padding: 10px 20px;
-                font-size: 13px;
+                font-size: {settings_label_size}px;
                 font-weight: bold;
                 font-family: 'Segoe UI', Arial, sans-serif;
             }
@@ -514,7 +565,7 @@ class LegalAssistantGUI(QMainWindow):
             }
             
             #processingStatusLabel {
-                font-size: 16px;
+                font-size: {progress_size}px;
                 font-weight: bold;
                 color: #3498db;
                 margin-top: 10px;
@@ -522,7 +573,7 @@ class LegalAssistantGUI(QMainWindow):
             }
             
             #tabHeaderLabel {
-                font-size: 18px;
+                font-size: {settings_size}px;
                 font-weight: bold;
                 color: #2c3e50;
                 margin-bottom: 15px;
@@ -541,7 +592,7 @@ class LegalAssistantGUI(QMainWindow):
                 border-radius: 6px;
                 padding: 10px;
                 background: white;
-                font-size: 14px;
+                font-size: {settings_label_size}px;
                 font-family: 'Segoe UI', Arial, sans-serif;
                 min-width: 120px;
             }
@@ -563,7 +614,7 @@ class LegalAssistantGUI(QMainWindow):
             }
             
             #customCheckBox {
-                font-size: 14px;
+                font-size: {settings_label_size}px;
                 font-weight: bold;
                 color: #2c3e50;
                 font-family: 'Segoe UI', Arial, sans-serif;
@@ -597,6 +648,7 @@ class LegalAssistantGUI(QMainWindow):
                 padding: 12px 24px;
                 margin-right: 2px;
                 font-weight: bold;
+                font-size: {settings_label_size}px;
                 font-family: 'Segoe UI', Arial, sans-serif;
             }
             
@@ -610,6 +662,36 @@ class LegalAssistantGUI(QMainWindow):
                 background: #e9ecef;
             }
         """)
+    
+    def update_scale_factor(self):
+        """Обновление масштаба на основе текущего размера окна"""
+        current_width = self.width()
+        current_height = self.height()
+        
+        # Базовый размер окна (1800x1100)
+        base_width = 1800
+        base_height = 1100
+        
+        # Вычисляем масштаб по ширине и высоте
+        scale_x = current_width / base_width
+        scale_y = current_height / base_height
+        
+        # Используем минимальный масштаб для сохранения пропорций
+        new_scale = min(scale_x, scale_y)
+        
+        # Ограничиваем масштаб разумными пределами
+        new_scale = max(0.5, min(2.0, new_scale))
+        
+        self.current_scale_factor = new_scale
+        self.update_styles_with_scale()
+    
+    def on_resize(self, event):
+        """Обработчик изменения размера окна для адаптивного масштабирования"""
+        # Вызываем родительский метод
+        super().resizeEvent(event)
+        
+        # Обновляем масштаб
+        self.update_scale_factor()
     
     def convert_markdown_to_html(self, text):
         """Конвертация Markdown в HTML"""
@@ -949,6 +1031,14 @@ class LegalAssistantGUI(QMainWindow):
 
 def main():
     app = QApplication(sys.argv)
+    
+    # Настройка высокого DPI для лучшего отображения на ноутбуках
+    app.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+    app.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+    
+    # Дополнительные настройки для Windows
+    if hasattr(Qt, 'AA_Use96Dpi'):
+        app.setAttribute(Qt.AA_Use96Dpi, False)
     
     # Установка иконки приложения
     app.setWindowIcon(QIcon())
