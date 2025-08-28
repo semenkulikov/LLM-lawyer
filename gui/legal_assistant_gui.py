@@ -19,6 +19,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from inference import load_model, generate
 from hybrid_processor import create_hybrid_processor
+from dataset_saver import create_dataset_saver
 
 # Для поддержки Markdown
 try:
@@ -98,6 +99,10 @@ class LegalAssistantGUI(QMainWindow):
         self.selected_provider = "openai"
         self.selected_mode = "polish"
         
+        # Инициализация сохранения датасета
+        self.dataset_saver = None
+        self.dataset_saving_enabled = True
+        
         # Переменные для адаптивного масштабирования
         self.base_font_sizes = {
             'title': 32,
@@ -115,6 +120,7 @@ class LegalAssistantGUI(QMainWindow):
         self.setup_styles()
         self.load_model_async()
         self.init_hybrid_processor()
+        self.init_dataset_saver()
         
         # Подключаем обработчик изменения размера окна
         self.resizeEvent = self.on_resize
@@ -237,13 +243,19 @@ class LegalAssistantGUI(QMainWindow):
         mode_label = QLabel("Режим:")
         mode_label.setObjectName("settingsLabel")
         self.mode_combo = QComboBox()
-        self.mode_combo.addItems(["Полировка", "Расширение", "Проверка"])
+        self.mode_combo.addItems(["Полный документ", "Детальная мотивировка", "Проверка и исправление"])
         self.mode_combo.currentTextChanged.connect(self.on_mode_change)
         self.mode_combo.setObjectName("customComboBox")
         
         # Описание режима
-        self.mode_desc_label = QLabel("Исправление ошибок и улучшение стиля")
+        self.mode_desc_label = QLabel("Создание полноценного юридического документа")
         self.mode_desc_label.setObjectName("modeDescLabel")
+        
+        # Чекбокс для сохранения датасета
+        self.save_dataset_checkbox = QCheckBox("Сохранять в датасет для обучения")
+        self.save_dataset_checkbox.setChecked(True)
+        self.save_dataset_checkbox.toggled.connect(self.toggle_dataset_saving)
+        self.save_dataset_checkbox.setObjectName("customCheckBox")
         
         settings_layout.addWidget(self.hybrid_checkbox)
         settings_layout.addWidget(provider_label)
@@ -251,6 +263,7 @@ class LegalAssistantGUI(QMainWindow):
         settings_layout.addWidget(mode_label)
         settings_layout.addWidget(self.mode_combo)
         settings_layout.addWidget(self.mode_desc_label)
+        settings_layout.addWidget(self.save_dataset_checkbox)
         settings_layout.addStretch()
         
         parent_layout.addWidget(settings_group)
@@ -350,10 +363,15 @@ class LegalAssistantGUI(QMainWindow):
         self.clear_all_btn.clicked.connect(self.clear_all_outputs)
         self.clear_all_btn.setObjectName("secondaryButton")
         
+        self.dataset_stats_btn = QPushButton("Статистика датасета")
+        self.dataset_stats_btn.clicked.connect(self.show_dataset_stats)
+        self.dataset_stats_btn.setObjectName("secondaryButton")
+        
         buttons_layout.addWidget(self.generate_btn)
         buttons_layout.addWidget(self.save_local_btn)
         buttons_layout.addWidget(self.save_hybrid_btn)
         buttons_layout.addWidget(self.clear_all_btn)
+        buttons_layout.addWidget(self.dataset_stats_btn)
         
         parent_layout.addLayout(buttons_layout)
     
@@ -392,7 +410,7 @@ class LegalAssistantGUI(QMainWindow):
         button_size = int(self.base_font_sizes['button'] * self.current_scale_factor)
         progress_size = int(self.base_font_sizes['progress'] * self.current_scale_factor)
         
-        self.setStyleSheet(f"""
+        stylesheet = """
             QMainWindow {{
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
                     stop:0 #f8f9fa, stop:1 #e9ecef);
@@ -499,17 +517,17 @@ class LegalAssistantGUI(QMainWindow):
                 font-family: 'Segoe UI', Arial, sans-serif;
             }}
             
-            #primaryButton:hover {
+            #primaryButton:hover {{
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                     stop:0 #2ecc71, stop:1 #27ae60);
-            }
+            }}
             
-            #primaryButton:disabled {
+            #primaryButton:disabled {{
                 background: #bdc3c7;
                 color: #7f8c8d;
-            }
+            }}
             
-            #secondaryButton {
+            #secondaryButton {{
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                     stop:0 #3498db, stop:1 #2980b9);
                 color: white;
@@ -519,14 +537,14 @@ class LegalAssistantGUI(QMainWindow):
                 font-size: {settings_label_size}px;
                 font-weight: bold;
                 font-family: 'Segoe UI', Arial, sans-serif;
-            }
+            }}
             
-            #secondaryButton:hover {
+            #secondaryButton:hover {{
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                     stop:0 #2980b9, stop:1 #3498db);
-            }
+            }}
             
-            #actionButton {
+            #actionButton {{
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                     stop:0 #f39c12, stop:1 #e67e22);
                 color: white;
@@ -536,58 +554,58 @@ class LegalAssistantGUI(QMainWindow):
                 font-size: {settings_label_size}px;
                 font-weight: bold;
                 font-family: 'Segoe UI', Arial, sans-serif;
-            }
+            }}
             
-            #actionButton:hover {
+            #actionButton:hover {{
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                     stop:0 #e67e22, stop:1 #f39c12);
-            }
+            }}
             
-            #progressFrame {
+            #progressFrame {{
                 background: white;
                 border: 2px solid #e0e0e0;
                 border-radius: 10px;
                 padding: 20px;
-            }
+            }}
             
-            #progressBar {
+            #progressBar {{
                 border: 2px solid #e0e0e0;
                 border-radius: 10px;
                 text-align: center;
                 background: #f0f0f0;
                 height: 20px;
-            }
+            }}
             
-            #progressBar::chunk {
+            #progressBar::chunk {{
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                     stop:0 #27ae60, stop:1 #2ecc71);
                 border-radius: 8px;
-            }
+            }}
             
-            #processingStatusLabel {
+            #processingStatusLabel {{
                 font-size: {progress_size}px;
                 font-weight: bold;
                 color: #3498db;
                 margin-top: 10px;
                 font-family: 'Segoe UI', Arial, sans-serif;
-            }
+            }}
             
-            #tabHeaderLabel {
+            #tabHeaderLabel {{
                 font-size: {settings_size}px;
                 font-weight: bold;
                 color: #2c3e50;
                 margin-bottom: 15px;
                 font-family: 'Segoe UI', Arial, sans-serif;
-            }
+            }}
             
-            #modeDescLabel {
+            #modeDescLabel {{
                 color: #7f8c8d;
                 font-style: italic;
                 margin-left: 15px;
                 font-family: 'Segoe UI', Arial, sans-serif;
-            }
+            }}
             
-            #customComboBox {
+            #customComboBox {{
                 border: 2px solid #e0e0e0;
                 border-radius: 6px;
                 padding: 10px;
@@ -595,52 +613,52 @@ class LegalAssistantGUI(QMainWindow):
                 font-size: {settings_label_size}px;
                 font-family: 'Segoe UI', Arial, sans-serif;
                 min-width: 120px;
-            }
+            }}
             
-            #customComboBox:focus {
+            #customComboBox:focus {{
                 border-color: #3498db;
-            }
+            }}
             
-            #customComboBox::drop-down {
+            #customComboBox::drop-down {{
                 border: none;
                 width: 25px;
-            }
+            }}
             
-            #customComboBox::down-arrow {
+            #customComboBox::down-arrow {{
                 image: none;
                 border-left: 6px solid transparent;
                 border-right: 6px solid transparent;
                 border-top: 6px solid #7f8c8d;
-            }
+            }}
             
-            #customCheckBox {
+            #customCheckBox {{
                 font-size: {settings_label_size}px;
                 font-weight: bold;
                 color: #2c3e50;
                 font-family: 'Segoe UI', Arial, sans-serif;
-            }
+            }}
             
-            #customCheckBox::indicator {
+            #customCheckBox::indicator {{
                 width: 20px;
                 height: 20px;
                 border: 2px solid #e0e0e0;
                 border-radius: 4px;
                 background: white;
-            }
+            }}
             
-            #customCheckBox::indicator:checked {
+            #customCheckBox::indicator:checked {{
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                     stop:0 #3498db, stop:1 #2980b9);
                 border-color: #3498db;
-            }
+            }}
             
-            QTabWidget::pane {
+            QTabWidget::pane {{
                 border: 2px solid #e0e0e0;
                 border-radius: 8px;
                 background: white;
-            }
+            }}
             
-            QTabBar::tab {
+            QTabBar::tab {{
                 background: #f8f9fa;
                 border: 2px solid #e0e0e0;
                 border-bottom: none;
@@ -650,18 +668,29 @@ class LegalAssistantGUI(QMainWindow):
                 font-weight: bold;
                 font-size: {settings_label_size}px;
                 font-family: 'Segoe UI', Arial, sans-serif;
-            }
+            }}
             
-            QTabBar::tab:selected {
+            QTabBar::tab:selected {{
                 background: white;
                 border-color: #3498db;
                 color: #3498db;
-            }
+            }}
             
-            QTabBar::tab:hover {
+            QTabBar::tab:hover {{
                 background: #e9ecef;
-            }
-        """)
+            }}
+        """.format(
+            title_size=title_size,
+            subtitle_size=subtitle_size,
+            status_size=status_size,
+            settings_size=settings_size,
+            settings_label_size=settings_label_size,
+            input_size=input_size,
+            button_size=button_size,
+            progress_size=progress_size
+        )
+        
+        self.setStyleSheet(stylesheet)
     
     def update_scale_factor(self):
         """Обновление масштаба на основе текущего размера окна"""
@@ -847,6 +876,25 @@ class LegalAssistantGUI(QMainWindow):
             self.hybrid_processor = None
             self.hybrid_checkbox.setChecked(False)
     
+    def init_dataset_saver(self):
+        """Инициализация сохранения датасета"""
+        try:
+            self.dataset_saver = create_dataset_saver()
+            logger.info("Сохранение датасета инициализировано")
+        except Exception as e:
+            logger.warning(f"Не удалось инициализировать сохранение датасета: {e}")
+            self.dataset_saver = None
+            self.save_dataset_checkbox.setChecked(False)
+    
+    def toggle_dataset_saving(self, enabled):
+        """Переключение сохранения датасета"""
+        self.dataset_saving_enabled = enabled
+        if self.dataset_saving_enabled and not self.dataset_saver:
+            QMessageBox.warning(self, "Предупреждение", 
+                              "Сохранение датасета недоступно. Проверьте настройки.")
+            self.save_dataset_checkbox.setChecked(False)
+            self.dataset_saving_enabled = False
+    
     def on_provider_change(self, provider):
         """Обработчик изменения провайдера"""
         self.selected_provider = provider.lower()
@@ -871,15 +919,15 @@ class LegalAssistantGUI(QMainWindow):
     def on_mode_change(self, mode):
         """Обработчик изменения режима обработки"""
         mode_mapping = {
-            "Полировка": "polish",
-            "Расширение": "enhance", 
-            "Проверка": "verify"
+            "Полный документ": "polish",
+            "Детальная мотивировка": "enhance", 
+            "Проверка и исправление": "verify"
         }
         
         mode_descriptions = {
-            "Полировка": "Исправление ошибок и улучшение стиля",
-            "Расширение": "Добавление недостающих элементов", 
-            "Проверка": "Проверка на ошибки с комментариями"
+            "Полный документ": "Создание полноценного юридического документа с мотивировкой",
+            "Детальная мотивировка": "Максимально детализированный документ с полной аргументацией", 
+            "Проверка и исправление": "Проверка на ошибки и создание исправленной версии"
         }
         
         self.mode_desc_label.setText(mode_descriptions.get(mode, ""))
@@ -958,6 +1006,21 @@ class LegalAssistantGUI(QMainWindow):
         self.local_output_text.setHtml(local_html)
         self.hybrid_output_text.setHtml(hybrid_html)
         
+        # Сохраняем в датасет для будущего обучения
+        if self.dataset_saving_enabled and self.dataset_saver:
+            try:
+                facts = self.input_text.toPlainText().strip()
+                self.dataset_saver.save_example(
+                    facts=facts,
+                    local_response=local_response,
+                    hybrid_response=hybrid_response,
+                    provider=self.selected_provider,
+                    mode=self.selected_mode
+                )
+                logger.info("Пример сохранен в датасет для обучения")
+            except Exception as e:
+                logger.error(f"Ошибка сохранения в датасет: {e}")
+        
         provider_name = self.selected_provider.upper()
         if self.hybrid_enabled and self.hybrid_processor:
             self.processing_status.setText(f"Готово! {provider_name} обработка завершена.")
@@ -1028,17 +1091,44 @@ class LegalAssistantGUI(QMainWindow):
                 QMessageBox.information(self, "Успех", f"Документ сохранен из {source_type} модели")
             except Exception as e:
                 QMessageBox.critical(self, "Ошибка", f"Не удалось сохранить файл: {e}")
+    
+    def show_dataset_stats(self):
+        """Показать статистику датасета"""
+        if not self.dataset_saver:
+            QMessageBox.warning(self, "Предупреждение", "Сохранение датасета не инициализировано")
+            return
+        
+        try:
+            stats = self.dataset_saver.get_stats()
+            if stats:
+                stats_text = f"""
+📊 Статистика датасета для обучения:
+
+📁 Файл: {stats.get('file_path', 'Неизвестно')}
+📝 Всего примеров: {stats.get('total_examples', 0)}
+📏 Средняя длина ввода: {stats.get('avg_input_length', 0)} символов
+📏 Средняя длина вывода: {stats.get('avg_output_length', 0)} символов
+📊 Общий объем ввода: {stats.get('total_input_chars', 0)} символов
+📊 Общий объем вывода: {stats.get('total_output_chars', 0)} символов
+
+💡 Этот датасет можно использовать для дообучения модели!
+                """
+                QMessageBox.information(self, "Статистика датасета", stats_text)
+            else:
+                QMessageBox.information(self, "Статистика датасета", "Датасет пуст или недоступен")
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось получить статистику: {e}")
 
 def main():
-    app = QApplication(sys.argv)
-    
-    # Настройка высокого DPI для лучшего отображения на ноутбуках
-    app.setAttribute(Qt.AA_EnableHighDpiScaling, True)
-    app.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+    # Настройка высокого DPI ДО создания QApplication
+    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+    QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
     
     # Дополнительные настройки для Windows
     if hasattr(Qt, 'AA_Use96Dpi'):
-        app.setAttribute(Qt.AA_Use96Dpi, False)
+        QApplication.setAttribute(Qt.AA_Use96Dpi, False)
+    
+    app = QApplication(sys.argv)
     
     # Установка иконки приложения
     app.setWindowIcon(QIcon())

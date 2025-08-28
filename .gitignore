@@ -11,6 +11,7 @@ output.txt
 demo_result.txt
 results/
 miniconda3/
+datasets/
 
 # Distribution / packaging
 .Python
