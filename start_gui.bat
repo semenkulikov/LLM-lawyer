@@ -1,63 +1,59 @@
 @echo off
-color a
 chcp 65001 >nul
+echo.
 echo ========================================
-echo    Графический интерфейс LLM-lawyer
+echo   Юридический ассистент - GUI запуск
 echo ========================================
 echo.
 
-REM Переходим в папку проекта
-cd /d "%~dp0"
-
-REM Активируем виртуальное окружение
-echo Активация виртуального окружения...
-call .venv\Scripts\activate
-
-REM Проверяем, что окружение активировано
-if not defined VIRTUAL_ENV (
-    echo ОШИБКА: Не удалось активировать виртуальное окружение!
-    echo Убедитесь, что проект правильно установлен.
+REM Активация виртуального окружения
+if exist "venv\Scripts\activate.bat" (
+    echo Активация виртуального окружения...
+    call venv\Scripts\activate.bat
+) else if exist ".venv\Scripts\activate.bat" (
+    echo Активация виртуального окружения...
+    call .venv\Scripts\activate.bat
+) else (
+    echo Виртуальное окружение не найдено!
+    echo Убедитесь, что оно создано и активировано.
     pause
     exit /b 1
 )
 
-echo Виртуальное окружение активировано.
 echo.
+echo Проверка зависимостей...
+python -c "import tkinter" 2>nul
+if errorlevel 1 (
+    echo Ошибка: tkinter не установлен!
+    echo Установите Python с поддержкой tkinter.
+    pause
+    exit /b 1
+)
 
-REM Проверяем наличие модели
+echo.
+echo Проверка модели...
 if not exist "models\legal_model" (
-    echo ПРЕДУПРЕЖДЕНИЕ: Модель не найдена в папке models\legal_model
-    echo Сначала необходимо обучить модель с помощью run_pipeline.bat
+    echo ВНИМАНИЕ: Модель не найдена!
+    echo Сначала обучите модель командой:
+    echo python src\train.py --train_file data\train_dataset.jsonl --output_dir models\legal_model
     echo.
     set /p choice="Продолжить без модели? (y/n): "
     if /i not "%choice%"=="y" (
-        echo Отмена запуска.
+        echo Запуск отменен.
         pause
         exit /b 1
     )
 )
 
-REM Проверяем наличие Gemini GUI
-if exist "gui\gemini_hybrid_app.py" (
-    echo Найдена гибридная система с Gemini Ultra
-    echo.
-    set /p choice="Запустить гибридный GUI с Gemini? (y/n): "
-    if /i "%choice%"=="y" (
-        echo Запуск гибридного GUI с Gemini Ultra...
-        python gui\gemini_hybrid_app.py
-        goto :end
-    )
-)
-
-echo Запуск обычного графического интерфейса...
+echo.
+echo Запуск универсального гибридного GUI...
 echo Откроется окно с интерфейсом
-echo Для остановки закройте окно браузера и нажмите Ctrl+C в этом окне
+echo Для остановки закройте окно и нажмите Ctrl+C в этом окне
 echo.
 
-REM Запускаем обычный GUI
-python gui\app.py
+REM Запускаем универсальный гибридный GUI
+python gui\hybrid_app.py
 
-:end
 echo.
 echo Графический интерфейс остановлен.
 pause 
